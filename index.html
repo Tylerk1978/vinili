@@ -167,6 +167,55 @@ textarea.field{resize:vertical;line-height:1.5}
 .welcome p{color:var(--muted);line-height:1.5;margin:0 0 18px;font-size:15px}
 .welcome .actions{justify-content:center}
 .linkbtn.add{margin-left:auto;text-decoration:none}
+.viewtoggle{display:inline-flex;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;margin-top:6px}
+.viewtoggle button{background:none;border:0;color:var(--muted);font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;cursor:pointer}
+.viewtoggle button.on{background:var(--ink);color:#231b13}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px 12px}
+.cletter{grid-column:1/-1;font-family:"Cormorant Garamond",Georgia,serif;font-size:28px;font-weight:700;color:var(--accent);border-bottom:1px solid #3d3226;padding-bottom:2px;margin-top:10px}
+.citem{background:none;border:0;padding:0;color:var(--ink);text-align:left;cursor:pointer;font:inherit;min-width:0}
+.citem .cimg{position:relative;width:100%;aspect-ratio:1;border-radius:3px;background:#100c09;overflow:hidden;box-shadow:0 6px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+.citem .cimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.citem .cimg .ph{font-family:"Cormorant Garamond",Georgia,serif;font-size:13px;font-weight:700;text-align:center;padding:8px;color:var(--t);background:var(--c);width:100%;height:100%;display:flex;align-items:center;justify-content:center;line-height:1.15}
+.citem b{display:block;font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-art.bars{gap:6px;padding:10px 12px 0;align-items:flex-end;border-bottom:0}
+.card-art.bars i{flex:1;background:var(--accent);border-radius:4px 4px 0 0;opacity:.9;min-height:4px}
+.backlink{background:none;border:0;color:var(--accent);font:600 15px Inter,sans-serif;cursor:pointer;padding:6px 0;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.apage h2{font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;font-weight:600;margin:22px 4px 8px}
+.apage .meta{color:var(--muted);font-size:14px;margin:0 4px 6px}
+.drow{display:flex;gap:12px;align-items:center;width:100%;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px;color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+.drow .th{flex:0 0 auto;width:54px;height:54px;border-radius:3px;overflow:hidden;background:#100c09;display:flex;align-items:center;justify-content:center}
+.drow .th img{width:100%;height:100%;object-fit:cover}
+.drow b{display:block;font-size:14px}
+.drow span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.aphoto-wrap{display:flex;flex-direction:column;align-items:center;margin:24px 0 4px}
+.aphoto{width:180px;height:220px;border-radius:14px;border:1px dashed #6b5132;background:#1d1711;color:var(--muted);cursor:pointer;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.4);font-size:13px;line-height:1.6}
+.aphoto.has{border:0}
+.aphoto img{width:100%;height:100%;object-fit:cover}
+.aphoto-acts{display:flex;gap:22px;margin-top:10px}
+.infoarea{min-height:140px;font-size:12.5px;text-align:justify;overflow:hidden;resize:none}
+.saved{color:var(--muted);font-size:12px;height:16px;margin-top:4px;text-align:right}
+.stat-hero{background:linear-gradient(180deg,#271f17,#1e1812);border:1px solid #4a3d2e;border-radius:20px;padding:22px;text-align:center;margin-top:10px}
+.stat-hero .num{font-family:"Cormorant Garamond",Georgia,serif;font-size:72px;font-weight:600;line-height:1;color:var(--accent)}
+.stat-hero .lbl{color:var(--muted);font-size:15px;margin-top:6px}
+.stat-mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.stat-mini div{background:var(--field);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;color:var(--muted);font-size:13px}
+.stat-mini b{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;color:var(--ink)}
+.subcard{display:flex;align-items:center;gap:10px;width:100%;background:linear-gradient(180deg,#271f17,#1e1812);border:1px solid #4a3d2e;border-radius:16px;padding:14px;color:var(--ink);cursor:pointer;font:inherit;margin-bottom:10px;text-align:left}
+.subcard .t{flex:1;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;font-weight:600}
+.subcard .s{color:var(--muted);font-size:13px}
+.grp{margin-bottom:8px}
+.grow{display:grid;grid-template-columns:minmax(0,140px) 1fr 40px;gap:12px;align-items:center;width:100%;padding:11px 14px;background:#211a14;border:1px solid #3d3226;border-radius:14px;color:var(--ink);cursor:pointer;font:inherit;text-align:left}
+.grow .y{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grow .track{height:10px;background:#100c09;border-radius:99px;overflow:hidden}
+.grow .fill{display:block;height:100%;background:linear-gradient(90deg,#b8843f,var(--accent));border-radius:99px}
+.grow .n{text-align:right;font-weight:600}
+.grp.open .grow{border-color:var(--accent);border-radius:14px 14px 0 0}
+.grp-list{background:#1a1410;border:1px solid var(--accent);border-top:0;border-radius:0 0 14px 14px;padding:4px 12px 10px}
+.grp-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #3d3226;padding:9px 2px;color:var(--ink);cursor:pointer;font:inherit}
+.grp-item b{display:block;font-size:13.5px}
+.grp-item span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.note{color:var(--muted);font-size:13px;margin:0 4px 12px}
 </style>
 </head>
 <body>
@@ -198,6 +247,11 @@ textarea.field{resize:vertical;line-height:1.5}
     <div class="card-body"><div class="card-title">In arrivo</div><div class="card-sub" id="homeIncSub"></div></div>
     <span class="chev">›</span>
   </button>
+  <button class="card" id="goStats">
+    <div class="card-art bars" id="homeBars"></div>
+    <div class="card-body"><div class="card-title">Statistiche</div><div class="card-sub" id="homeStatsSub"></div></div>
+    <span class="chev">›</span>
+  </button>
   <footer class="credits" id="credits"></footer>
 </section>
 
@@ -210,9 +264,13 @@ textarea.field{resize:vertical;line-height:1.5}
     <select class="field" id="genreSel"><option value="">Tutti i generi</option></select>
     <select class="field" id="yearSel"><option value="">Tutti gli anni</option></select>
   </div>
+  <div class="viewtoggle" id="viewToggle"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
   <div class="letters" id="letters"></div>
   <div id="collMain"></div>
 </section>
+
+<section id="viewArtist" class="wrap" hidden></section>
+<section id="viewStats" class="wrap" hidden></section>
 
 <section id="viewLists" class="wrap" hidden>
   <div class="controls">
@@ -282,13 +340,14 @@ textarea.field{resize:vertical;line-height:1.5}
 </div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <input type="file" id="photoFile" accept="image/*" hidden>
+<input type="file" id="artistPhotoFile" accept="image/*" hidden>
 
 <script>
 (() => {
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
-const state = { discs: [], view: "home", q: "", genre: "", year: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
+const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -376,11 +435,13 @@ const DISC_SVG = `<svg class="disc" viewBox="0 0 100 100" aria-hidden="true"><ci
 
 /* ---------- Pagine ---------- */
 function showView(v, push = true){
-  if (!["home","collezione","wishlist","inarrivo"].includes(v)) v = "home";
+  if (!["home","collezione","wishlist","inarrivo","artista","statistiche"].includes(v)) v = "home";
+  if (v === "artista" && !state.artist) v = "home";
   if (state.view !== v){ state.lq = ""; $("lq").value = ""; }
   state.view = v;
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
-  $("backBtn").hidden = v === "home"; $("addBtn").hidden = v === "home";
+  $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche";
+  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v);
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
@@ -388,14 +449,21 @@ window.addEventListener("popstate", () => showView((location.hash || "").slice(1
 $("goColl").onclick = () => showView("collezione");
 $("goWish").onclick = () => showView("wishlist");
 $("goInc").onclick = () => showView("inarrivo");
-$("backBtn").onclick = () => showView("home");
-$("homeLink").onclick = () => showView("home");
+$("backBtn").onclick = () => {
+  if (state.view === "artista" && state.artistReturn) return goBackFromArtist();
+  if (state.view === "statistiche" && state.statsSub){ state.statsSub = null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  showView("home");
+};
+$("goStats").onclick = () => { state.statsSub = null; state.statsOpen = null; showView("statistiche"); };
+$("homeLink").onclick = () => { state.artistReturn = null; showView("home"); };
 $("addBtn").onclick = () => openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null);
 
 function render(){
   const coll = collection();
   $("sub").textContent = coll.length ? `${coll.length} ${coll.length === 1 ? "disco" : "dischi"} in collezione` : "La collezione ti aspetta";
   renderHome(); renderColl(); renderLists();
+  if (state.view === "artista") renderArtist();
+  if (state.view === "statistiche") renderStats();
 }
 function renderHome(){
   const coll = collection().sort(discSort), wish = listOf("wish"), inc = listOf("incoming");
@@ -407,6 +475,16 @@ function renderHome(){
   $("homeInc").innerHTML = [...inc, ...deco.slice(3)].slice(0, 7).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("") + BOX_SVG;
   $("homeIncSub").textContent = inc.length ? `${inc.length} ${inc.length === 1 ? "disco ordinato" : "dischi ordinati"}` : "Ordinati, non ancora arrivati";
   $("homeBanner").innerHTML = bannerHTML();
+  const dec = decadeCounts().slice(-6);
+  const mx = Math.max(1, ...dec.map(x => x[1]));
+  $("homeBars").innerHTML = dec.map(([k,c]) => `<i style="height:${Math.max(6, Math.round(c / mx * 80))}px" title="${k}"></i>`).join("");
+  const nA = new Set(coll.map(d => norm(d.artist))).size;
+  $("homeStatsSub").textContent = coll.length ? `${nA} artisti · ${allGenres().length} generi` : "Generi, artisti e decenni";
+}
+function decadeCounts(){
+  const m = {};
+  for (const d of collection()) if (d.year){ const k = Math.floor(d.year / 10) * 10; m[k] = (m[k] || 0) + 1; }
+  return Object.keys(m).map(Number).sort((a,b) => a - b).map(k => [k, m[k]]);
 }
 function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)); }
 // Rimpicciolisce il testo di ogni costina finché artista e titolo ci stanno interi
@@ -442,6 +520,26 @@ function renderColl(){
     return;
   }
   if (!list.length){ $("collMain").innerHTML = `<p class="nores">Nessun disco corrisponde alla ricerca</p>`; return; }
+  document.querySelectorAll("#viewToggle button").forEach(b => b.classList.toggle("on", b.dataset.m === state.mode));
+  const countTxt = state.q || state.genre || state.year ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`;
+  if (state.mode === "cover"){
+    let g = "", lastL = null;
+    for (const d of list){
+      const l = letterOf(d);
+      if (l !== lastL){ g += `<div class="cletter" id="L-${l}">${l}</div>`; lastL = l; }
+      const hsh = hash((d.artist || "") + "|" + (d.album || "")), col = d.color || PALETTE[hsh % PALETTE.length];
+      const img = d.coverUrl && !d.coverLocal ? `<img src="${esc(d.coverUrl)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+      g += `<button class="citem" data-id="${esc(d.id)}"><div class="cimg" data-local="${d.coverLocal ? 1 : ""}" style="--c:${col};--t:${lum(col) > .6 ? "#2a2018" : "#f4ead6"}"><div class="ph">${esc(d.album)}</div>${img}</div><b>${esc(d.album)}</b><span>${esc(d.artist)}</span></button>`;
+    }
+    $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${countTxt}</span></div><div class="cgrid">${g}</div>`;
+    $("collMain").querySelectorAll('.cimg[data-local="1"]').forEach(async el => {
+      const d = state.discs.find(x => x.id === el.parentNode.dataset.id); const src = d && await coverSrc(d);
+      if (src) el.insertAdjacentHTML("beforeend", `<img src="${esc(src)}" alt="">`);
+    });
+    $("collMain").querySelectorAll(".cimg img").forEach(im => { im.style.position = "absolute"; });
+    state.newId = null;
+    return;
+  }
   let html = "", last = null;
   for (const d of list){
     const l = letterOf(d);
@@ -468,7 +566,9 @@ $("lq").addEventListener("input", e => { state.lq = e.target.value.trim(); rende
 $("genreSel").addEventListener("change", e => { state.genre = e.target.value; renderColl(); });
 $("yearSel").addEventListener("change", e => { state.year = e.target.value; renderColl(); });
 $("letters").addEventListener("click", e => { const b = e.target.closest("button[data-l]"); if (!b || b.disabled) return; const el = $("L-" + b.dataset.l); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" }); });
+$("viewToggle").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (!b) return; state.mode = b.dataset.m; setMeta("viewMode", state.mode); renderColl(); });
 $("collMain").addEventListener("click", e => {
+  const ci = e.target.closest(".citem"); if (ci) return openDetail(ci.dataset.id);
   if (e.target.id === "wAdd") return openForm(null, null);
   if (e.target.id === "wImport"){ $("importFile").value = ""; return $("importFile").click(); }
   const s = e.target.closest(".spine"); if (s) openDetail(s.dataset.id);
@@ -476,6 +576,138 @@ $("collMain").addEventListener("click", e => {
 $("listsMain").addEventListener("click", e => {
   const a = e.target.closest("[data-add]"); if (a) return openForm(null, a.dataset.add);
   const s = e.target.closest(".spine"); if (s) openDetail(s.dataset.id);
+});
+
+/* ---------- Pagina artista ---------- */
+const akey = a => norm(String(a || "").trim());
+const aPhotoURLs = {};
+function openArtist(name, ret){
+  state.artist = name; state.artistReturn = ret || null;
+  showView("artista");
+}
+function goBackFromArtist(){
+  const r = state.artistReturn; state.artistReturn = null;
+  if (r.view === "artista") state.artist = r.artist;
+  showView(r.view);
+  window.scrollTo(0, r.scroll || 0);
+  if (r.id) openDetail(r.id);
+}
+function discRow(d){
+  const st = d.list === "wish" ? " · in wishlist" : d.list === "incoming" ? " · in arrivo" : "";
+  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span style="min-width:0"><b>${esc(d.album)}</b><span>${d.year || "anno ?"}${(d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span></button>`;
+}
+function renderArtist(){
+  const name = state.artist, k = akey(name);
+  const mine = state.discs.filter(d => akey(d.artist) === k);
+  const coll = mine.filter(d => !d.list).sort((a,b) => (a.year || 9999) - (b.year || 9999));
+  const other = mine.filter(d => d.list);
+  const info = (getMeta().artistInfo || {})[k] || "";
+  const r = state.artistReturn;
+  $("viewArtist").innerHTML = `<div class="apage">
+    ${r ? `<button class="backlink" id="aBack">‹ Torna a «${esc(r.title || "")}»</button>` : `<button class="backlink" id="aBack">‹ Indietro</button>`}
+    <h2 style="margin-top:8px;font-size:34px">${esc(name)}</h2>
+    <p class="meta">${coll.length} ${coll.length === 1 ? "disco" : "dischi"} in collezione${other.length ? ` · ${other.length} in wishlist o in arrivo` : ""}</p>
+    <h2>Discografia</h2>
+    ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
+    ${other.map(discRow).join("")}
+    <div class="aphoto-wrap"><button class="aphoto" id="aPhoto">＋<br>Carica una foto</button>
+      <div class="aphoto-acts" id="aPhotoActs" hidden><button class="linkbtn" id="aPhotoChange">Cambia</button><button class="linkbtn" id="aPhotoDel">Togli</button></div></div>
+    <h2>Info</h2>
+    <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
+    <div class="saved" id="aSaved"></div>
+  </div>`;
+  $("viewArtist").querySelectorAll(".th[data-cid]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cid); const src = d && await coverSrc(d); if (src) el.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()">`; });
+  drawArtistPhoto(name);
+  const ta = $("aInfo");
+  const grow = () => { const y = window.scrollY, hh = ta.offsetHeight; ta.style.height = hh + "px"; const need = Math.max(140, ta.scrollHeight + 2); if (need > hh) ta.style.height = need + "px"; else { ta.style.height = "1px"; ta.style.height = Math.max(140, ta.scrollHeight + 2) + "px"; } window.scrollTo(0, y); };
+  grow();
+  let t = null;
+  const save = () => { const m = getMeta(); const ai = { ...(m.artistInfo || {}) }; const v = ta.value.trim(); if (v) ai[k] = v; else delete ai[k]; setMeta("artistInfo", ai); setMeta("lastChangeAt", new Date().toISOString()); $("aSaved").textContent = "Salvato"; };
+  ta.addEventListener("input", () => { grow(); $("aSaved").textContent = ""; clearTimeout(t); t = setTimeout(() => { t = null; save(); }, 600); });
+  ta.addEventListener("blur", () => { if (t){ clearTimeout(t); t = null; save(); } });
+}
+async function drawArtistPhoto(name){
+  const key = "artist:" + akey(name);
+  let url = aPhotoURLs[key];
+  if (!url){ try { const b = await idb.get(key); if (b){ url = URL.createObjectURL(b); aPhotoURLs[key] = url; } } catch(e){} }
+  const btn = $("aPhoto"); if (!btn || state.artist !== name) return;
+  btn.classList.toggle("has", !!url);
+  btn.innerHTML = url ? `<img src="${url}" alt="">` : "＋<br>Carica una foto";
+  $("aPhotoActs").hidden = !url;
+}
+$("viewArtist").addEventListener("click", async e => {
+  if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
+  const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
+  if (e.target.closest("#aPhoto") && !$("aPhoto").classList.contains("has") || e.target.closest("#aPhotoChange")){ $("artistPhotoFile").value = ""; return $("artistPhotoFile").click(); }
+  if (e.target.closest("#aPhotoDel")){
+    if (!(await askConfirm("Togliere la foto?", "La foto dell'artista verrà eliminata.", "Togli", true))) return;
+    const key = "artist:" + akey(state.artist);
+    try { await idb.del(key); } catch(err){}
+    if (aPhotoURLs[key]){ URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
+    drawArtistPhoto(state.artist);
+  }
+});
+$("artistPhotoFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; if (!f || !state.artist) return;
+  const key = "artist:" + akey(state.artist);
+  let had = false; try { had = !!(await idb.get(key)); } catch(err){}
+  if (had && !(await askConfirm("Cambiare la foto?", "Sostituirà la foto attuale.", "Cambia"))) return;
+  try {
+    const url = URL.createObjectURL(f);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+    await idb.set(key, blob);
+    if (aPhotoURLs[key]){ URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
+    setMeta("lastChangeAt", new Date().toISOString());
+    drawArtistPhoto(state.artist);
+  } catch(err){}
+});
+
+/* ---------- Statistiche ---------- */
+function groups(kind){
+  const m = new Map();
+  for (const d of collection()){
+    let keys;
+    if (kind === "genere") keys = (d.genres && d.genres.length) ? d.genres : ["Senza genere"];
+    else if (kind === "artista") keys = [d.artist];
+    else if (kind === "decennio") keys = [d.year ? `Anni ${String(Math.floor(d.year / 10) * 10)}` : "Anno sconosciuto"];
+    else keys = [d.vinyl ? d.vinyl.trim().replace(/^./, c => c.toUpperCase()) : "Non indicato"];
+    for (const k of keys){ const kk = kind === "artista" ? akey(k) : k; if (!m.has(kk)) m.set(kk, { label: k, items: [] }); m.get(kk).items.push(d); }
+  }
+  const arr = [...m.entries()].map(([key, v]) => ({ key, label: v.label, items: v.items.sort(discSort) }));
+  if (kind === "decennio") return arr.sort((a,b) => a.label.localeCompare(b.label));
+  return arr.sort((a,b) => (/^(Senza|Non indicato)/.test(a.label) - /^(Senza|Non indicato)/.test(b.label)) || (b.items.length - a.items.length) || a.label.localeCompare(b.label, "it"));
+}
+const SUBS = { genere: "Per genere", artista: "Per artista", decennio: "Per decennio", colore: "Per colore del vinile" };
+function renderStats(){
+  const coll = collection();
+  const sub = state.statsSub;
+  if (sub){
+    const gs = groups(sub), max = Math.max(1, ...gs.map(g => g.items.length));
+    $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">${SUBS[sub]}</h2>
+      <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
+      ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
+        ${open ? `<div class="grp-list">${g.items.map(d => `<button class="grp-item" data-id="${esc(d.id)}"><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}</span></button>`).join("")}</div>` : ""}</div>`; }).join("")}</div>`;
+    return;
+  }
+  const nA = new Set(coll.map(d => akey(d.artist))).size;
+  $("viewStats").innerHTML = `<div class="apage">
+    <div class="stat-hero"><div class="num">${coll.length}</div><div class="lbl">dischi in collezione</div></div>
+    <div class="stat-mini"><div><b>${nA}</b>artisti</div><div><b>${allGenres().length}</b>generi</div><div><b>${listOf("wish").length}</b>in wishlist</div><div><b>${listOf("incoming").length}</b>in arrivo</div></div>
+    <h2>Approfondisci</h2>
+    ${Object.entries(SUBS).map(([k, l]) => `<button class="subcard" data-sub="${k}"><span class="t">${l}</span><span class="s">${groups(k).length}</span><span class="chev" style="font-size:22px">›</span></button>`).join("")}
+  </div>`;
+}
+$("viewStats").addEventListener("click", e => {
+  if (e.target.closest("#sBack")){ state.statsSub = null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  const it = e.target.closest(".grp-item"); if (it) return openDetail(it.dataset.id);
+  const g = e.target.closest(".grow"); if (!g) return;
+  if (state.statsSub === "artista") return openArtist(g.dataset.l, { view: "statistiche", title: "Per artista", scroll: window.scrollY });
+  state.statsOpen = state.statsOpen === g.dataset.k ? null : g.dataset.k; renderStats();
 });
 
 /* ---------- Conferma ---------- */
@@ -530,7 +762,7 @@ async function openDetail(id){
   $("detOv").hidden = false; $("det").scrollTop = 0;
   $("dClose").onclick = () => { $("detOv").hidden = true; };
   $("dEdit").onclick = () => { $("detOv").hidden = true; openForm(d, d.list || null); };
-  $("dArtist").onclick = () => { $("detOv").hidden = true; state.q = d.artist; $("q").value = d.artist; state.genre = ""; showView("collezione"); };
+  $("dArtist").onclick = () => { $("detOv").hidden = true; openArtist(d.artist, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); };
   $("det").querySelectorAll(".chip.tag").forEach(c => c.onclick = () => { $("detOv").hidden = true; state.genre = c.dataset.g; state.q = ""; $("q").value = ""; showView("collezione"); });
   $("dDel").onclick = async () => {
     if (!(await askConfirm("Eliminare il disco?", `«${d.album}» di ${d.artist} verrà eliminato.`, "Elimina", true))) return;
@@ -667,7 +899,9 @@ async function exportBackup(){
     if (d.coverLocal){ try { const b = await idb.get(d.id); if (b) c.coverData = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }); } catch(e){} }
     discs.push(c);
   }
-  const file = new File([JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), discs })], `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
+  const artistPhotos = {};
+  for (const k of new Set(state.discs.map(d => akey(d.artist)))){ try { const b = await idb.get("artist:" + k); if (b) artistPhotos[k] = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }); } catch(e){} }
+  const file = new File([JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: getMeta().artistInfo || {}, artistPhotos, discs })], `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
   const r = await shareOrDownload(file, "Backup pronto: salvalo su File o iCloud Drive.");
   if (r){ setMeta("lastBackupAt", new Date().toISOString()); setMeta("snoozeUntil", null); }
   return r;
@@ -696,12 +930,18 @@ function parseBackup(text){
     ...(d.discogsId ? { discogsId: String(d.discogsId) } : {}),
     createdAt: typeof d.createdAt === "string" ? d.createdAt : new Date().toISOString() }));
   if (!out.length) throw new Error("Nel file non ho trovato dischi.");
+  if (data && data.artistInfo && typeof data.artistInfo === "object") out.artistInfo = data.artistInfo;
+  if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
   return out;
 }
 async function applyImport(discs){
   $("menu").innerHTML = `<h3>Importo…</h3><p>Sistemo ${discs.length} dischi sugli scaffali.</p>`;
   try { await idb.clear(); } catch(e){}
   Object.keys(coverURLs).forEach(dropCover);
+  const ai = discs.artistInfo, ap = discs.artistPhotos; delete discs.artistInfo; delete discs.artistPhotos;
+  if (ai) setMeta("artistInfo", ai);
+  if (ap) for (const [k, v] of Object.entries(ap)){ if (typeof v === "string" && /^data:image\//.test(v)) try { await idb.set("artist:" + k, await (await fetch(v)).blob()); } catch(e){} }
+  Object.keys(aPhotoURLs).forEach(k => { URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
   for (const d of discs){ if (d.coverData){ try { await idb.set(d.id, await (await fetch(d.coverData)).blob()); d.coverLocal = true; } catch(e){} } delete d.coverData; }
   state.discs = discs; try { persist(); } catch(e){}
   setMeta("lastBackupAt", new Date().toISOString());
@@ -765,6 +1005,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (!$("cfO
 /* ---------- Avvio ---------- */
 $("credits").innerHTML = `<b>I miei vinili</b><br>Versione ${APP_VERSION} · by Massimo Merigo`;
 state.discs = load();
+state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
 showView((location.hash || "").slice(1), false);
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
