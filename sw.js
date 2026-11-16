@@ -1,8 +1,8 @@
 // Service worker: rende "I miei vinili" utilizzabile offline.
-const CACHE = "vinili-v7";
+const CACHE = "vinili-v8";
 const COVERS = "vinili-covers";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
-const COVER_HOSTS = ["mzstatic.com", "books.google.com", "books.googleusercontent.com", "covers.openlibrary.org", "archive.org"];
+const COVER_HOSTS = ["mzstatic.com", "books.google.com", "books.googleusercontent.com", "covers.openlibrary.org", "archive.org", "dzcdn.net", "wikimedia.org"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

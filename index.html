@@ -210,6 +210,10 @@ textarea.field{resize:vertical;line-height:1.5}
 .aphoto.has{border:0}
 .aphoto img{width:100%;height:100%;object-fit:cover}
 .aphoto-acts{display:flex;gap:22px;margin-top:10px}
+.pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0;max-height:55vh;overflow:auto}
+.pgrid button{padding:0;border:1px solid #5d4c39;border-radius:12px;overflow:hidden;background:#1d1711;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;text-align:left}
+.pgrid img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pgrid span{font-size:11px;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .infoarea{min-height:140px;font-size:12.5px;text-align:justify;overflow:hidden;resize:none}
 .saved{color:var(--muted);font-size:12px;height:16px;margin-top:4px;text-align:right}
 .stat-hero{background:linear-gradient(180deg,#271f17,#1e1812);border:1px solid #4a3d2e;border-radius:20px;padding:22px;text-align:center;margin-top:10px}
@@ -381,7 +385,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.17";
+const APP_VERSION = "1.18";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -653,8 +657,8 @@ function renderArtist(){
     ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
     ${other.map(discRow).join("")}
     <div class="aphoto-wrap"><button class="aphoto" id="aPhoto">＋<br>Carica una foto</button>
-      <div class="aphoto-acts" id="aPhotoActs" hidden><button class="linkbtn" id="aPhotoChange">Cambia</button><button class="linkbtn" id="aPhotoDel">Togli</button></div>
-      <div class="aphoto-acts" id="aPhotoWeb" hidden><button class="linkbtn" id="aPhotoFind">Cerca su Wikipedia</button></div></div>
+      <div class="aphoto-acts" id="aPhotoActs" hidden><button class="linkbtn" id="aPhotoChange">Carica</button><button class="linkbtn" id="aPhotoOnline2">Scegli online</button><button class="linkbtn" id="aPhotoDel">Togli</button></div>
+      <div class="aphoto-acts" id="aPhotoWeb" hidden><button class="linkbtn" id="aPhotoFind">Scegli una foto online</button></div></div>
     <h2>Info</h2>
     <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
     <div class="saved" id="aSaved"></div>
@@ -673,59 +677,119 @@ async function drawArtistPhoto(name){
   const key = "artist:" + akey(name);
   let url = aPhotoURLs[key];
   if (!url){ try { const b = await idb.get(key); if (b){ url = URL.createObjectURL(b); aPhotoURLs[key] = url; } } catch(e){} }
+  if (!url){ const u = artistUrlMap()[akey(name)]; if (u){ url = u; aPhotoURLs[key] = u; } }
   const btn = $("aPhoto"); if (!btn || state.artist !== name) return;
   btn.classList.toggle("has", !!url);
-  btn.innerHTML = url ? `<img src="${url}" alt="">` : "＋<br>Carica una foto";
+  btn.innerHTML = url ? `<img src="${esc(url)}" alt="">` : "＋<br>Carica una foto";
   $("aPhotoActs").hidden = !url;
   if ($("aPhotoWeb")) $("aPhotoWeb").hidden = !!url;
 }
-/* ---------- Foto artisti da Wikipedia ---------- */
+/* ---------- Foto artisti: Deezer (foto ufficiali) + Wikipedia ---------- */
 const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista/i;
+const nk = s => norm(s).replace(/^the\s+/, "").replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+function jsonp(url){
+  return new Promise((res, rej) => {
+    const cb = "dz" + Math.random().toString(36).slice(2), sc = document.createElement("script");
+    const done = () => { clearTimeout(t); delete window[cb]; sc.remove(); };
+    const t = setTimeout(() => { done(); rej(0); }, 12000);
+    window[cb] = d => { done(); res(d); };
+    sc.onerror = () => { done(); rej(0); };
+    sc.src = url + (url.includes("?") ? "&" : "?") + "output=jsonp&callback=" + cb;
+    document.head.appendChild(sc);
+  });
+}
+async function deezerCandidates(name){
+  try {
+    const d = await jsonp("https://api.deezer.com/search/artist?limit=10&q=" + encodeURIComponent(name));
+    return (d && d.data || []).filter(a => a.picture_xl && !/\/artist\/\//.test(a.picture_xl))
+      .map(a => ({ src: a.picture_xl, thumb: a.picture_medium || a.picture_xl, label: a.name, from: "Deezer", exact: nk(a.name) === nk(name), fans: a.nb_fan || 0 }));
+  } catch(e){ return []; }
+}
 async function wikiPages(lang, params){
-  const u = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|description&piprop=thumbnail&pithumbsize=800&` + params;
+  const u = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|description&piprop=thumbnail&pithumbsize=1000&` + params;
   const r = await fetch(u); if (!r.ok) throw 0;
   const j = await r.json(); return Object.values(j.query?.pages || {}).filter(p => !("missing" in p));
 }
-async function findArtistImage(name){
-  const n = norm(name);
+async function wikiCandidates(name){
+  const out = [];
   for (const lang of ["en", "it"]){
     const suff = lang === "en" ? ["band", "musician", "singer", "rapper", "group"] : ["gruppo musicale", "cantante", "musicista"];
-    const titles = [...suff.map(x => `${name} (${x})`), name];
     try {
-      const pages = await wikiPages(lang, "titles=" + encodeURIComponent(titles.join("|")));
-      const byTitle = t => pages.find(p => norm(p.title) === norm(t));
-      for (const t of titles){ const p = byTitle(t); if (p && p.thumbnail && MUSIC_RE.test(p.description || "")) return p.thumbnail.source; }
+      const pages = await wikiPages(lang, "titles=" + encodeURIComponent([...suff.map(x => `${name} (${x})`), name].join("|")));
+      for (const p of pages) if (p.thumbnail && MUSIC_RE.test(p.description || "") && !out.some(o => o.src === p.thumbnail.source)) out.push({ src: p.thumbnail.source, thumb: p.thumbnail.source, label: p.title, from: "Wikipedia" });
     } catch(e){}
-    try {
-      const pages = (await wikiPages(lang, "generator=search&gsrlimit=6&gsrsearch=" + encodeURIComponent(name + (lang === "en" ? " band musician" : " musica")))).sort((a, b) => a.index - b.index);
-      const p = pages.find(p => p.thumbnail && MUSIC_RE.test(p.description || "") && norm(p.title.replace(/\s*\(.*\)$/, "")) === n);
-      if (p) return p.thumbnail.source;
-    } catch(e){}
+    if (out.length) break;
   }
-  return null;
+  return out;
 }
 async function imageUrlToBlob(src){
   const r = await fetch(src, { mode: "cors" }); if (!r.ok) throw 0;
   const b = await r.blob(); const url = URL.createObjectURL(b);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement("canvas");
+    const k = Math.min(1, 1000 / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement("canvas");
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    return await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+    return await new Promise(res => c.toBlob(res, "image/jpeg", 0.88));
   } finally { URL.revokeObjectURL(url); }
 }
-// Scarica la foto di un artista solo se non ne ha già una: non sostituisce mai quelle esistenti.
+// Dove sta la foto di un artista: nel dispositivo (blob) oppure come indirizzo web (se il sito non permette di copiarla).
+function artistUrlMap(){ return getMeta().artistPhotoUrls || {}; }
+function artistAutoMap(){ return getMeta().artistAuto || {}; }
+async function artistHasPhoto(k){ try { if (await idb.get("artist:" + k)) return true; } catch(e){} return !!artistUrlMap()[k]; }
+// "Automatica" = scaricata dall'app e non scelta da te: solo queste possono essere sostituite in automatico.
+async function artistPhotoIsAuto(k){
+  if (artistAutoMap()[k]) return true;
+  if ((getMeta().artistManual || {})[k]) return false;
+  try { // foto prese da Wikipedia con la versione 1.17: lato lungo esattamente 800 pixel
+    const b = await idb.get("artist:" + k); if (!b) return false;
+    const bm = await createImageBitmap(b); const big = Math.max(bm.width, bm.height); bm.close && bm.close(); return big === 800;
+  } catch(e){ return false; }
+}
+function setArtistFlags(k, auto){
+  const m = getMeta(); const a = { ...(m.artistAuto || {}) }, man = { ...(m.artistManual || {}) };
+  if (auto){ a[k] = true; delete man[k]; } else { delete a[k]; man[k] = true; }
+  setMeta("artistAuto", a); setMeta("artistManual", man);
+}
+async function saveArtistPhoto(name, src, auto){
+  const k = akey(name), key = "artist:" + k;
+  const urls = { ...artistUrlMap() };
+  try { const blob = await imageUrlToBlob(src); if (!blob) throw 0; await idb.set(key, blob); delete urls[k]; }
+  catch(e){ try { await idb.del(key); } catch(_){} urls[k] = src; const im = new Image(); im.src = src; }
+  setMeta("artistPhotoUrls", urls); setArtistFlags(k, auto);
+  if (aPhotoURLs[key]){ if (aPhotoURLs[key].startsWith("blob:")) URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
+  setMeta("lastChangeAt", new Date().toISOString());
+}
 async function autoArtistPhoto(name){
-  const key = "artist:" + akey(name);
-  try { if (await idb.get(key)) return "had"; } catch(e){}
-  const src = await findArtistImage(name); if (!src) return "none";
-  try { const blob = await imageUrlToBlob(src); if (!blob) return "none"; if (await idb.get(key)) return "had"; await idb.set(key, blob); return "new"; } catch(e){ return "none"; }
+  const k = akey(name);
+  if (await artistHasPhoto(k) && !(await artistPhotoIsAuto(k))) return "had";
+  const c = (await deezerCandidates(name)).filter(x => x.exact).sort((a, b) => b.fans - a.fans)[0];
+  if (!c) return (await artistHasPhoto(k)) ? "had" : "none";
+  await saveArtistPhoto(name, c.src, true);
+  return "new";
+}
+async function openPhotoPicker(name){
+  $("menu").innerHTML = `<h3>Foto di ${esc(name)}</h3><p>Cerco le foto…</p>`; $("menuOv").hidden = false;
+  const [dz, wk] = await Promise.all([deezerCandidates(name), wikiCandidates(name)]);
+  const list = [...dz.filter(x => x.exact), ...dz.filter(x => !x.exact).slice(0, 3), ...wk];
+  $("menu").innerHTML = `<h3>Foto di ${esc(name)}</h3>
+    <p>${list.length ? "Tocca la foto che vuoi usare." : "Non ho trovato foto online per questo artista. Puoi caricarne una tua."}</p>
+    <div class="pgrid">${list.map((c, i) => `<button type="button" data-i="${i}"><img src="${esc(c.thumb)}" alt="" loading="lazy" onerror="this.parentNode.remove()"><span>${esc(c.label)} · ${c.from}</span></button>`).join("")}</div>
+    <div class="err" id="ppErr"></div>
+    <div class="actions"><button class="btn ghost" id="ppNo">Chiudi</button></div>`;
+  $("ppNo").onclick = () => { $("menuOv").hidden = true; };
+  $("menu").querySelector(".pgrid").onclick = async e => {
+    const b = e.target.closest("button[data-i]"); if (!b) return;
+    const k = akey(name);
+    if (await artistHasPhoto(k) && !(await askConfirm("Cambiare la foto?", "Sostituirà la foto attuale.", "Cambia"))) return;
+    b.style.opacity = ".5"; await saveArtistPhoto(name, list[+b.dataset.i].src, false);
+    $("menuOv").hidden = true; if (state.artist === name) drawArtistPhoto(name);
+  };
 }
 let photoRun = null;
 function openArtistPhotosMenu(){
   const names = [...new Set(state.discs.map(d => (d.artist || "").trim()).filter(a => a && !/^(various|various artists|aa\.?\s?vv\.?|artisti vari)$/i.test(a)))].sort((a, b) => a.localeCompare(b, "it"));
   $("menu").innerHTML = `<h3>Foto degli artisti</h3>
-    <p>Cerco su Wikipedia una foto per ogni artista che non ne ha ancora una. Le foto che hai già caricato non vengono toccate. Serve internet e può volerci qualche minuto.</p>
+    <p>Cerco su Deezer le foto ufficiali degli artisti. Metto la foto solo a chi non ce l'ha e sostituisco quelle scaricate in automatico (anche quelle prese prima da Wikipedia). Le foto caricate o scelte da te non vengono mai toccate. Serve internet.</p>
     <p id="apProg" style="font-weight:600"></p>
     <div class="ok" id="apOk"></div>
     <div class="actions"><button class="btn ghost" id="apBack">Indietro</button><button class="btn" id="apGo">Cerca le foto (${names.length} artisti)</button></div>`;
@@ -737,17 +801,16 @@ function openArtistPhotosMenu(){
     const worker = async () => {
       while (!run.stop && i < names.length){
         const name = names[i++];
-        const res = await autoArtistPhoto(name);
+        let res = "none"; try { res = await autoArtistPhoto(name); } catch(e){}
         if (res === "new") found++; else if (res === "had") had++;
-        done++; if ($("apProg")) $("apProg").textContent = `${done} di ${names.length} · ${found} foto nuove`;
+        done++; if ($("apProg")) $("apProg").textContent = `${done} di ${names.length} · ${found} ${found === 1 ? "foto nuova" : "foto nuove"}`;
       }
     };
     await Promise.all([worker(), worker(), worker()]);
     photoRun = null;
-    Object.keys(aPhotoURLs).forEach(k => { URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
-    if (found) setMeta("lastChangeAt", new Date().toISOString());
+    Object.keys(aPhotoURLs).forEach(k => { if (aPhotoURLs[k].startsWith("blob:")) URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
     const miss = done - found - had;
-    if ($("apOk")) $("apOk").textContent = `${run.stop ? "Fermato. " : "Fatto. "}${found} ${found === 1 ? "foto nuova" : "foto nuove"}${had ? `, ${had} ${had === 1 ? "artista aveva" : "artisti avevano"} già la sua foto` : ""}${miss ? `, ${miss} senza foto trovata (puoi caricarle a mano)` : ""}.`;
+    if ($("apOk")) $("apOk").textContent = `${run.stop ? "Fermato. " : "Fatto. "}${found} ${found === 1 ? "foto nuova" : "foto nuove"}${had ? `, ${had} ${had === 1 ? "artista aveva" : "artisti avevano"} già la sua foto` : ""}${miss ? `, ${miss} non trovati su Deezer (per loro usa "Scegli online" nella pagina dell'artista)` : ""}.`;
     if ($("apGo")) $("apGo").textContent = "Cerca di nuovo";
   };
 }
@@ -755,28 +818,22 @@ function openArtistPhotosMenu(){
 $("viewArtist").addEventListener("click", async e => {
   if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
   const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
-  if (e.target.closest("#aPhotoFind")){
-    const b = $("aPhotoFind"), name = state.artist; b.textContent = "Cerco…"; b.disabled = true;
-    const res = await autoArtistPhoto(name);
-    if (state.artist !== name) return;
-    if (res === "new") setMeta("lastChangeAt", new Date().toISOString());
-    drawArtistPhoto(name);
-    if ($("aPhotoFind")){ $("aPhotoFind").disabled = false; $("aPhotoFind").textContent = res === "new" ? "Cerca su Wikipedia" : "Non trovata · riprova"; }
-    return;
-  }
+  if (e.target.closest("#aPhotoFind") || e.target.closest("#aPhotoOnline2")) return openPhotoPicker(state.artist);
   if (e.target.closest("#aPhoto") && !$("aPhoto").classList.contains("has") || e.target.closest("#aPhotoChange")){ $("artistPhotoFile").value = ""; return $("artistPhotoFile").click(); }
   if (e.target.closest("#aPhotoDel")){
     if (!(await askConfirm("Togliere la foto?", "La foto dell'artista verrà eliminata.", "Togli", true))) return;
     const key = "artist:" + akey(state.artist);
     try { await idb.del(key); } catch(err){}
-    if (aPhotoURLs[key]){ URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
+    const k = akey(state.artist), urls = { ...artistUrlMap() }; delete urls[k]; setMeta("artistPhotoUrls", urls);
+    const au = { ...artistAutoMap() }; delete au[k]; setMeta("artistAuto", au);
+    if (aPhotoURLs[key]){ if (aPhotoURLs[key].startsWith("blob:")) URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
     drawArtistPhoto(state.artist);
   }
 });
 $("artistPhotoFile").addEventListener("change", async e => {
   const f = e.target.files && e.target.files[0]; if (!f || !state.artist) return;
   const key = "artist:" + akey(state.artist);
-  let had = false; try { had = !!(await idb.get(key)); } catch(err){}
+  const had = await artistHasPhoto(akey(state.artist));
   if (had && !(await askConfirm("Cambiare la foto?", "Sostituirà la foto attuale.", "Cambia"))) return;
   try {
     const url = URL.createObjectURL(f);
@@ -786,7 +843,8 @@ $("artistPhotoFile").addEventListener("change", async e => {
     URL.revokeObjectURL(url);
     const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
     await idb.set(key, blob);
-    if (aPhotoURLs[key]){ URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
+    { const k = akey(state.artist), urls = { ...artistUrlMap() }; delete urls[k]; setMeta("artistPhotoUrls", urls); setArtistFlags(k, false); }
+    if (aPhotoURLs[key]){ if (aPhotoURLs[key].startsWith("blob:")) URL.revokeObjectURL(aPhotoURLs[key]); delete aPhotoURLs[key]; }
     setMeta("lastChangeAt", new Date().toISOString());
     drawArtistPhoto(state.artist);
   } catch(err){}
@@ -1170,7 +1228,7 @@ async function exportBackup(){
   }
   const artistPhotos = {};
   for (const k of new Set(state.discs.map(d => akey(d.artist)))){ try { const b = await idb.get("artist:" + k); if (b) artistPhotos[k] = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }); } catch(e){} }
-  const file = new File([JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: getMeta().artistInfo || {}, artistPhotos, discs })], `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
+  const file = new File([JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: getMeta().artistInfo || {}, artistPhotos, artistPhotoUrls: artistUrlMap(), artistAuto: artistAutoMap(), artistManual: getMeta().artistManual || {}, discs })], `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
   const r = await shareOrDownload(file, "Backup pronto: salvalo su File o iCloud Drive.");
   if (r){ setMeta("lastBackupAt", new Date().toISOString()); setMeta("snoozeUntil", null); }
   return r;
@@ -1202,6 +1260,7 @@ function parseBackup(text){
   if (!out.length) throw new Error("Nel file non ho trovato dischi.");
   if (data && data.artistInfo && typeof data.artistInfo === "object") out.artistInfo = data.artistInfo;
   if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
+  for (const f of ["artistPhotoUrls", "artistAuto", "artistManual"]) if (data && data[f] && typeof data[f] === "object") out[f] = data[f];
   return out;
 }
 async function applyImport(discs){
@@ -1210,6 +1269,10 @@ async function applyImport(discs){
   // il backup aggiunge solo quelle che mancano.
   Object.keys(coverURLs).forEach(dropCover);
   const ai = discs.artistInfo, ap = discs.artistPhotos; delete discs.artistInfo; delete discs.artistPhotos;
+  const apu = discs.artistPhotoUrls, aau = discs.artistAuto, aman = discs.artistManual; delete discs.artistPhotoUrls; delete discs.artistAuto; delete discs.artistManual;
+  if (apu){ const cur = { ...artistUrlMap() }; for (const [k, v] of Object.entries(apu)) if (typeof v === "string" && /^https:\/\//.test(v) && !cur[k] && !(await (async () => { try { return !!(await idb.get("artist:" + k)); } catch(e){ return false; } })())) cur[k] = v; setMeta("artistPhotoUrls", cur); }
+  if (aau) setMeta("artistAuto", { ...aau, ...artistAutoMap() });
+  if (aman) setMeta("artistManual", { ...aman, ...(getMeta().artistManual || {}) });
   if (ai) setMeta("artistInfo", ai);
   if (ap) for (const [k, v] of Object.entries(ap)){ if (typeof v === "string" && /^data:image\//.test(v)) try { if (!(await idb.get("artist:" + k))) await idb.set("artist:" + k, await (await fetch(v)).blob()); } catch(e){} }
   Object.keys(aPhotoURLs).forEach(k => { URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
@@ -1252,7 +1315,7 @@ function openMenu(msg){
     <button class="item" id="mImport">Importa backup<small>Sostituisce la collezione di questo dispositivo</small></button>
     <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
     <button class="item" id="mOffline">Salva le copertine per l'uso offline<small>${state.discs.filter(d => d.coverUrl && !d.coverLocal).length} copertine online · serve internet</small></button>
-    <button class="item" id="mPhotos">Scarica le foto degli artisti<small>Da Wikipedia, solo per chi non ha ancora una foto · serve internet</small></button>
+    <button class="item" id="mPhotos">Scarica le foto degli artisti<small>Foto ufficiali da Deezer · non tocca le foto scelte da te · serve internet</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
     <div class="actions"><button class="btn ghost" id="mClose">Chiudi</button></div>
