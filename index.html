@@ -381,7 +381,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.15";
+const APP_VERSION = "1.16";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1122,13 +1122,20 @@ function parseBackup(text){
 }
 async function applyImport(discs){
   $("menu").innerHTML = `<h3>Importo…</h3><p>Sistemo ${discs.length} dischi sugli scaffali.</p>`;
-  try { await idb.clear(); } catch(e){}
+  // Le foto già salvate sul dispositivo non vengono MAI cancellate da un import:
+  // il backup aggiunge solo quelle che mancano.
   Object.keys(coverURLs).forEach(dropCover);
   const ai = discs.artistInfo, ap = discs.artistPhotos; delete discs.artistInfo; delete discs.artistPhotos;
   if (ai) setMeta("artistInfo", ai);
-  if (ap) for (const [k, v] of Object.entries(ap)){ if (typeof v === "string" && /^data:image\//.test(v)) try { await idb.set("artist:" + k, await (await fetch(v)).blob()); } catch(e){} }
+  if (ap) for (const [k, v] of Object.entries(ap)){ if (typeof v === "string" && /^data:image\//.test(v)) try { if (!(await idb.get("artist:" + k))) await idb.set("artist:" + k, await (await fetch(v)).blob()); } catch(e){} }
   Object.keys(aPhotoURLs).forEach(k => { URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
-  for (const d of discs){ if (d.coverData){ try { await idb.set(d.id, await (await fetch(d.coverData)).blob()); d.coverLocal = true; } catch(e){} } delete d.coverData; }
+  for (const d of discs){
+    let has = false; try { has = !!(await idb.get(d.id)); } catch(e){}
+    if (has) d.coverLocal = true;
+    else if (d.coverData){ try { await idb.set(d.id, await (await fetch(d.coverData)).blob()); d.coverLocal = true; } catch(e){ d.coverLocal = false; } }
+    else if (d.coverLocal) d.coverLocal = false;
+    delete d.coverData;
+  }
   state.discs = discs; try { persist(); } catch(e){}
   setMeta("lastBackupAt", new Date().toISOString());
   render(); openMenu(`Importati ${discs.length} dischi.`);
@@ -1137,7 +1144,7 @@ $("importFile").addEventListener("change", async e => {
   const f = e.target.files && e.target.files[0]; if (!f) return;
   if ($("menuOv").hidden) openMenu();
   let discs; try { discs = parseBackup(await f.text()); } catch(err){ $("mErr").textContent = err.message; return; }
-  if (state.discs.length && !(await askConfirm("Importare il backup?", `Il file contiene ${discs.length} dischi e sostituisce i ${state.discs.length} attuali.`, "Sostituisci", true))) return;
+  if (state.discs.length && !(await askConfirm("Importare il backup?", `Il file contiene ${discs.length} dischi e sostituisce i ${state.discs.length} attuali. Le foto che hai caricato restano tutte.`, "Sostituisci", true))) return;
   applyImport(discs);
 });
 function daysSince(iso){ return iso ? Math.floor((Date.now() - new Date(iso)) / 86400000) : Infinity; }
