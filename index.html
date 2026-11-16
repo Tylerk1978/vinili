@@ -381,7 +381,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.16";
+const APP_VERSION = "1.17";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -653,7 +653,8 @@ function renderArtist(){
     ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
     ${other.map(discRow).join("")}
     <div class="aphoto-wrap"><button class="aphoto" id="aPhoto">＋<br>Carica una foto</button>
-      <div class="aphoto-acts" id="aPhotoActs" hidden><button class="linkbtn" id="aPhotoChange">Cambia</button><button class="linkbtn" id="aPhotoDel">Togli</button></div></div>
+      <div class="aphoto-acts" id="aPhotoActs" hidden><button class="linkbtn" id="aPhotoChange">Cambia</button><button class="linkbtn" id="aPhotoDel">Togli</button></div>
+      <div class="aphoto-acts" id="aPhotoWeb" hidden><button class="linkbtn" id="aPhotoFind">Cerca su Wikipedia</button></div></div>
     <h2>Info</h2>
     <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
     <div class="saved" id="aSaved"></div>
@@ -676,10 +677,93 @@ async function drawArtistPhoto(name){
   btn.classList.toggle("has", !!url);
   btn.innerHTML = url ? `<img src="${url}" alt="">` : "＋<br>Carica una foto";
   $("aPhotoActs").hidden = !url;
+  if ($("aPhotoWeb")) $("aPhotoWeb").hidden = !!url;
 }
+/* ---------- Foto artisti da Wikipedia ---------- */
+const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista/i;
+async function wikiPages(lang, params){
+  const u = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|description&piprop=thumbnail&pithumbsize=800&` + params;
+  const r = await fetch(u); if (!r.ok) throw 0;
+  const j = await r.json(); return Object.values(j.query?.pages || {}).filter(p => !("missing" in p));
+}
+async function findArtistImage(name){
+  const n = norm(name);
+  for (const lang of ["en", "it"]){
+    const suff = lang === "en" ? ["band", "musician", "singer", "rapper", "group"] : ["gruppo musicale", "cantante", "musicista"];
+    const titles = [...suff.map(x => `${name} (${x})`), name];
+    try {
+      const pages = await wikiPages(lang, "titles=" + encodeURIComponent(titles.join("|")));
+      const byTitle = t => pages.find(p => norm(p.title) === norm(t));
+      for (const t of titles){ const p = byTitle(t); if (p && p.thumbnail && MUSIC_RE.test(p.description || "")) return p.thumbnail.source; }
+    } catch(e){}
+    try {
+      const pages = (await wikiPages(lang, "generator=search&gsrlimit=6&gsrsearch=" + encodeURIComponent(name + (lang === "en" ? " band musician" : " musica")))).sort((a, b) => a.index - b.index);
+      const p = pages.find(p => p.thumbnail && MUSIC_RE.test(p.description || "") && norm(p.title.replace(/\s*\(.*\)$/, "")) === n);
+      if (p) return p.thumbnail.source;
+    } catch(e){}
+  }
+  return null;
+}
+async function imageUrlToBlob(src){
+  const r = await fetch(src, { mode: "cors" }); if (!r.ok) throw 0;
+  const b = await r.blob(); const url = URL.createObjectURL(b);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+// Scarica la foto di un artista solo se non ne ha già una: non sostituisce mai quelle esistenti.
+async function autoArtistPhoto(name){
+  const key = "artist:" + akey(name);
+  try { if (await idb.get(key)) return "had"; } catch(e){}
+  const src = await findArtistImage(name); if (!src) return "none";
+  try { const blob = await imageUrlToBlob(src); if (!blob) return "none"; if (await idb.get(key)) return "had"; await idb.set(key, blob); return "new"; } catch(e){ return "none"; }
+}
+let photoRun = null;
+function openArtistPhotosMenu(){
+  const names = [...new Set(state.discs.map(d => (d.artist || "").trim()).filter(a => a && !/^(various|various artists|aa\.?\s?vv\.?|artisti vari)$/i.test(a)))].sort((a, b) => a.localeCompare(b, "it"));
+  $("menu").innerHTML = `<h3>Foto degli artisti</h3>
+    <p>Cerco su Wikipedia una foto per ogni artista che non ne ha ancora una. Le foto che hai già caricato non vengono toccate. Serve internet e può volerci qualche minuto.</p>
+    <p id="apProg" style="font-weight:600"></p>
+    <div class="ok" id="apOk"></div>
+    <div class="actions"><button class="btn ghost" id="apBack">Indietro</button><button class="btn" id="apGo">Cerca le foto (${names.length} artisti)</button></div>`;
+  $("apBack").onclick = () => { if (photoRun) photoRun.stop = true; openMenu(); };
+  $("apGo").onclick = async () => {
+    if (photoRun) { photoRun.stop = true; return; }
+    const run = photoRun = { stop: false }; let i = 0, found = 0, had = 0, done = 0;
+    $("apGo").textContent = "Ferma"; $("apOk").textContent = "";
+    const worker = async () => {
+      while (!run.stop && i < names.length){
+        const name = names[i++];
+        const res = await autoArtistPhoto(name);
+        if (res === "new") found++; else if (res === "had") had++;
+        done++; if ($("apProg")) $("apProg").textContent = `${done} di ${names.length} · ${found} foto nuove`;
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    photoRun = null;
+    Object.keys(aPhotoURLs).forEach(k => { URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
+    if (found) setMeta("lastChangeAt", new Date().toISOString());
+    const miss = done - found - had;
+    if ($("apOk")) $("apOk").textContent = `${run.stop ? "Fermato. " : "Fatto. "}${found} ${found === 1 ? "foto nuova" : "foto nuove"}${had ? `, ${had} ${had === 1 ? "artista aveva" : "artisti avevano"} già la sua foto` : ""}${miss ? `, ${miss} senza foto trovata (puoi caricarle a mano)` : ""}.`;
+    if ($("apGo")) $("apGo").textContent = "Cerca di nuovo";
+  };
+}
+
 $("viewArtist").addEventListener("click", async e => {
   if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
   const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
+  if (e.target.closest("#aPhotoFind")){
+    const b = $("aPhotoFind"), name = state.artist; b.textContent = "Cerco…"; b.disabled = true;
+    const res = await autoArtistPhoto(name);
+    if (state.artist !== name) return;
+    if (res === "new") setMeta("lastChangeAt", new Date().toISOString());
+    drawArtistPhoto(name);
+    if ($("aPhotoFind")){ $("aPhotoFind").disabled = false; $("aPhotoFind").textContent = res === "new" ? "Cerca su Wikipedia" : "Non trovata · riprova"; }
+    return;
+  }
   if (e.target.closest("#aPhoto") && !$("aPhoto").classList.contains("has") || e.target.closest("#aPhotoChange")){ $("artistPhotoFile").value = ""; return $("artistPhotoFile").click(); }
   if (e.target.closest("#aPhotoDel")){
     if (!(await askConfirm("Togliere la foto?", "La foto dell'artista verrà eliminata.", "Togli", true))) return;
@@ -1168,6 +1252,7 @@ function openMenu(msg){
     <button class="item" id="mImport">Importa backup<small>Sostituisce la collezione di questo dispositivo</small></button>
     <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
     <button class="item" id="mOffline">Salva le copertine per l'uso offline<small>${state.discs.filter(d => d.coverUrl && !d.coverLocal).length} copertine online · serve internet</small></button>
+    <button class="item" id="mPhotos">Scarica le foto degli artisti<small>Da Wikipedia, solo per chi non ha ancora una foto · serve internet</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
     <div class="actions"><button class="btn ghost" id="mClose">Chiudi</button></div>
@@ -1176,6 +1261,7 @@ function openMenu(msg){
   $("mClose").onclick = () => { $("menuOv").hidden = true; };
   $("mExport").onclick = async () => { $("mOk").textContent = await exportBackup(); render(); };
   $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
+  $("mPhotos").onclick = openArtistPhotosMenu;
   $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
   $("mDiscogs").onclick = () => {
     const cur = getMeta().discogsToken || "";
