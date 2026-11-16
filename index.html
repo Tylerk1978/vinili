@@ -93,9 +93,9 @@ textarea.field{resize:vertical;line-height:1.5}
   box-shadow:inset 2px 0 2px rgba(255,255,255,.12), inset -3px 0 4px rgba(0,0,0,.4), 1px 0 2px rgba(0,0,0,.5);transition:transform .2s, filter .2s}
 .spine::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:rgba(0,0,0,.25)}
 .spine:hover,.spine:focus-visible{transform:translateY(-6px);filter:brightness(1.1);outline:none}
-.spine .txt{writing-mode:vertical-rl;transform:rotate(180deg);display:flex;gap:5px;align-items:center;max-height:100%;white-space:nowrap;overflow:hidden}
-.spine .ar{font-size:calc(6px * var(--s) + 1px);letter-spacing:.5px;text-transform:uppercase;font-weight:600;opacity:.85;overflow:hidden;text-overflow:ellipsis;flex:0 1000 auto;min-height:0;max-height:36%}
-.spine .al{font-family:"Cormorant Garamond",Georgia,serif;font-weight:700;font-size:calc(8px * var(--s) + 1.5px);overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-height:0}
+.spine .txt{writing-mode:vertical-rl;transform:rotate(180deg);display:block;max-height:100%;max-width:100%;white-space:normal;text-align:center;line-height:1.05;font-size:calc(9px * var(--s) + 1.5px);overflow:hidden;overflow-wrap:anywhere}
+.spine .ar{display:block;font-size:.72em;letter-spacing:.4px;text-transform:uppercase;font-weight:600;opacity:.85;margin-left:2px}
+.spine .al{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-weight:700}
 .spine.new{animation:drop .7s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes drop{from{transform:translateY(-60px);opacity:0}to{transform:none;opacity:1}}
 .divider{position:relative;width:calc(22px * var(--s));height:calc(var(--row) * .98);background:linear-gradient(90deg,#d8c9a8,#c4b48f);border-radius:3px 3px 1px 1px;box-shadow:1px 0 3px rgba(0,0,0,.5);display:flex;justify-content:center;padding-top:6px;margin:0 2px}
@@ -279,7 +279,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { discs: [], view: "home", q: "", genre: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -399,6 +399,19 @@ function renderHome(){
   requestAnimationFrame(() => { const t = $("listsTitle"); if (!t.offsetParent) return; let fs = 30; t.style.fontSize = fs + "px"; while (t.scrollWidth > t.clientWidth && fs > 14){ fs -= .5; t.style.fontSize = fs + "px"; } });
 }
 function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)); }
+// Rimpicciolisce il testo di ogni costina finché artista e titolo ci stanno interi
+function fitSpines(root){
+  const spines = root.querySelectorAll(".spine .txt");
+  for (const t of spines){
+    if (t.dataset.fit) continue;
+    const box = t.parentNode;
+    const H = box.clientHeight - 16, W = box.clientWidth - 2;
+    let fs = parseFloat(getComputedStyle(t).fontSize);
+    let guard = 0;
+    while ((t.scrollHeight > H || t.scrollWidth > W) && fs > 4.5 && guard++ < 40){ fs -= 0.5; t.style.fontSize = fs + "px"; }
+    t.dataset.fit = "1";
+  }
+}
 function renderColl(){
   const genres = allGenres();
   if (state.genre && !genres.includes(state.genre)) state.genre = "";
@@ -422,6 +435,7 @@ function renderColl(){
     html += `<div class="slot">${spineHTML(d, d.id === state.newId ? "new" : "")}</div>`;
   }
   html += "</div>";
+  requestAnimationFrame(() => fitSpines($("collMain")));
   $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${state.q || state.genre ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`}</span></div><div class="case">${html}</div>`;
   state.newId = null;
 }
@@ -433,6 +447,7 @@ function renderLists(){
       <div class="case"><div class="shelf">${list.length ? list.map(d => `<div class="slot">${spineHTML(d, d.id === state.newId ? "new" : "")}</div>`).join("") : `<div class="empty-row">${q ? "Nessun disco corrisponde" : empty}</div>`}</div></div>`;
   };
   $("listsMain").innerHTML = sec("wish", "Wishlist", "I dischi che vorresti comprare") + sec("incoming", "In arrivo", "I dischi ordinati e non ancora arrivati");
+  requestAnimationFrame(() => fitSpines($("listsMain")));
 }
 $("q").addEventListener("input", e => { state.q = e.target.value.trim(); renderColl(); });
 $("lq").addEventListener("input", e => { state.lq = e.target.value.trim(); renderLists(); });
