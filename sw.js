@@ -1,5 +1,5 @@
 // Service worker: rende "I miei vinili" utilizzabile offline.
-const CACHE = "vinili-v2";
+const CACHE = "vinili-v3";
 const COVERS = "vinili-covers";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 const COVER_HOSTS = ["mzstatic.com", "books.google.com", "books.googleusercontent.com", "covers.openlibrary.org", "archive.org"];
@@ -27,6 +27,9 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+
+  // Libreria per leggere i codici a barre.
+  if (url.hostname === "unpkg.com") { e.respondWith(cacheFirst(CACHE, req)); return; }
 
   // Font di Google.
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {

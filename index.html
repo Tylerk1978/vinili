@@ -167,6 +167,15 @@ textarea.field{resize:vertical;line-height:1.5}
 .welcome p{color:var(--muted);line-height:1.5;margin:0 0 18px;font-size:15px}
 .welcome .actions{justify-content:center}
 .linkbtn.add{margin-left:auto;text-decoration:none}
+.scanner{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column}
+.scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scan-frame{position:absolute;left:8%;right:8%;top:32%;height:22%;border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 0 2000px rgba(0,0,0,.45)}
+.scan-frame i{position:absolute;left:6%;right:6%;top:50%;height:2px;background:#e05a4a;box-shadow:0 0 8px #e05a4a;animation:scanline 1.6s ease-in-out infinite}
+@keyframes scanline{0%,100%{transform:translateY(-36px)}50%{transform:translateY(36px)}}
+.scan-top{position:absolute;top:calc(20px + env(safe-area-inset-top));left:0;right:0;text-align:center;color:#fff;font-size:15px;font-weight:600;padding:0 24px;text-shadow:0 1px 4px #000}
+.scan-bottom{position:absolute;left:0;right:0;bottom:0;padding:16px 18px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(0,0,0,.85) 30%)}
+.scan-msg{color:#fff;text-align:center;font-size:14px;min-height:20px;margin-bottom:10px}
+.scan-manual{display:flex;gap:8px}
 .viewtoggle{display:inline-flex;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;margin-top:6px}
 .viewtoggle button{background:none;border:0;color:var(--muted);font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;cursor:pointer}
 .viewtoggle button.on{background:var(--ink);color:#231b13}
@@ -187,9 +196,13 @@ textarea.field{resize:vertical;line-height:1.5}
 .drow .th{flex:0 0 auto;width:54px;height:54px;border-radius:3px;overflow:hidden;background:#100c09;display:flex;align-items:center;justify-content:center}
 .drow .th img{width:100%;height:100%;object-fit:cover}
 .drow b{display:block;font-size:14px}
+.drow .rinfo{flex:1;min-width:0}
+.drow .rstars{flex:0 0 auto;color:var(--accent);font-size:13px;letter-spacing:1px;padding-right:4px;white-space:nowrap}
+.drow .rstars .sg{display:inline}
+.sg{background:linear-gradient(90deg,var(--accent) var(--f),#5d4c39 var(--f));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .drow span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .aphoto-wrap{display:flex;flex-direction:column;align-items:center;margin:24px 0 4px}
-.aphoto{width:180px;height:220px;border-radius:14px;border:1px dashed #6b5132;background:#1d1711;color:var(--muted);cursor:pointer;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.4);font-size:13px;line-height:1.6}
+.aphoto{width:96%;height:auto;aspect-ratio:3/2;border-radius:14px;border:1px dashed #6b5132;background:#1d1711;color:var(--muted);cursor:pointer;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.4);font-size:13px;line-height:1.6}
 .aphoto.has{border:0}
 .aphoto img{width:100%;height:100%;object-fit:cover}
 .aphoto-acts{display:flex;gap:22px;margin-top:10px}
@@ -227,7 +240,7 @@ textarea.field{resize:vertical;line-height:1.5}
       <div class="sub" id="sub">&nbsp;</div>
     </div>
   </div>
-  <div class="hbtns"><button class="iconbtn" id="menuBtn" aria-label="Menu">⋯</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button></div>
+  <div class="hbtns"><button class="iconbtn" id="menuBtn" aria-label="Menu">⋯</button><button class="iconbtn" id="scanBtn" aria-label="Scansiona codice a barre" hidden>📷</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button></div>
 </header>
 
 <section id="viewHome" class="home">
@@ -286,6 +299,8 @@ textarea.field{resize:vertical;line-height:1.5}
 <div class="overlay" id="formOv" hidden>
   <form class="sheet" id="form" novalidate>
     <h3 id="formTitle">Nuovo disco</h3>
+    <button type="button" class="btn ghost" id="fScan" style="width:100%">📷 Scansiona il codice a barre</button>
+    <div class="hint" id="fScanHint"></div>
     <label>Copertina</label>
     <div class="fcover">
       <div class="fcover-prev" id="fCoverPrev"></div>
@@ -341,10 +356,24 @@ textarea.field{resize:vertical;line-height:1.5}
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <input type="file" id="photoFile" accept="image/*" hidden>
 <input type="file" id="artistPhotoFile" accept="image/*" hidden>
+<input type="file" id="barcodePhoto" accept="image/*" capture="environment" hidden>
+<div class="scanner" id="scanOv" hidden>
+  <video id="scanVideo" playsinline muted autoplay></video>
+  <div class="scan-frame"><i></i></div>
+  <div class="scan-top">Inquadra il codice a barre sul retro della copertina</div>
+  <div class="scan-bottom">
+    <div class="scan-msg" id="scanMsg"></div>
+    <div class="scan-manual"><input class="field" id="scanCode" inputmode="numeric" placeholder="…oppure scrivi il codice"><button class="btn small" id="scanGo">Cerca</button></div>
+    <div class="actions" style="justify-content:center;margin-top:12px">
+      <button class="btn ghost" id="scanPhoto">Scatta una foto</button>
+      <button class="btn ghost" id="scanClose">Annulla</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.13";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -440,7 +469,7 @@ function showView(v, push = true){
   state.view = v;
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
   $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche";
-  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v);
+  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden;
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
@@ -593,7 +622,9 @@ function goBackFromArtist(){
 }
 function discRow(d){
   const st = d.list === "wish" ? " · in wishlist" : d.list === "incoming" ? " · in arrivo" : "";
-  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span style="min-width:0"><b>${esc(d.album)}</b><span>${d.year || "anno ?"}${(d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span></button>`;
+  const r = Number(d.rating) || 0;
+  const stars = r ? `<span class="rstars" title="${String(r).replace(".", ",")} stelle">${starsHTML(r)}</span>` : "";
+  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span class="rinfo"><b>${esc(d.album)}</b><span>${d.year || "anno ?"}${(d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span>${stars}</button>`;
 }
 function renderArtist(){
   const name = state.artist, k = akey(name);
@@ -709,6 +740,137 @@ $("viewStats").addEventListener("click", e => {
   state.statsOpen = state.statsOpen === g.dataset.k ? null : g.dataset.k; renderStats();
 });
 
+/* ---------- Codice a barre ---------- */
+const ZXING_URL = "https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+let zxingP = null, scanStream = null, scanReader = null, scanLoop = null, scanDone = false;
+function loadZXing(){
+  if (window.ZXing) return Promise.resolve(window.ZXing);
+  return zxingP || (zxingP = new Promise((res, rej) => { const s = document.createElement("script"); s.src = ZXING_URL; s.onload = () => res(window.ZXing); s.onerror = () => { zxingP = null; rej(new Error("zxing")); }; document.head.appendChild(s); }));
+}
+function zxHints(Z){ const h = new Map(); h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_E]); h.set(Z.DecodeHintType.TRY_HARDER, true); return h; }
+async function openScanner(){
+  scanDone = false;
+  $("scanOv").hidden = false; $("scanCode").value = ""; $("scanMsg").textContent = "Avvio la fotocamera…";
+  if (!navigator.onLine) $("scanMsg").textContent = "Senza internet posso leggere il codice ma non cercare il disco.";
+  try {
+    if ("BarcodeDetector" in window){
+      const det = new BarcodeDetector({ formats: ["ean_13","upc_a","ean_8","upc_e"] });
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      const v = $("scanVideo"); v.srcObject = scanStream; await v.play();
+      $("scanMsg").textContent = "";
+      const tick = async () => { if (scanDone || $("scanOv").hidden) return; try { const r = await det.detect(v); if (r && r[0]) return onCode(r[0].rawValue); } catch(e){} scanLoop = setTimeout(tick, 250); };
+      tick();
+    } else {
+      const Z = await loadZXing();
+      scanReader = new Z.BrowserMultiFormatReader(zxHints(Z));
+      await scanReader.decodeFromConstraints({ video: { facingMode: "environment" }, audio: false }, $("scanVideo"), (res) => { if (res && !scanDone) onCode(res.getText()); });
+      $("scanMsg").textContent = "";
+    }
+  } catch(e){
+    $("scanMsg").textContent = "Non riesco ad aprire la fotocamera. Usa «Scatta una foto» oppure scrivi il codice.";
+  }
+}
+function stopScanner(){
+  scanDone = true; clearTimeout(scanLoop);
+  try { if (scanReader) scanReader.reset(); } catch(e){} scanReader = null;
+  if (scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const v = $("scanVideo"); try { v.pause(); v.srcObject = null; } catch(e){}
+}
+function closeScanner(){ stopScanner(); $("scanOv").hidden = true; }
+$("scanClose").onclick = closeScanner;
+$("scanGo").onclick = () => { const c = $("scanCode").value.replace(/\D/g, ""); if (c.length >= 8) onCode(c); else $("scanMsg").textContent = "Il codice deve avere almeno 8 cifre."; };
+$("scanCode").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("scanGo").click(); } });
+$("scanPhoto").onclick = () => { $("barcodePhoto").value = ""; $("barcodePhoto").click(); };
+$("barcodePhoto").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  $("scanMsg").textContent = "Leggo il codice dalla foto…";
+  const url = URL.createObjectURL(f);
+  try {
+    let code = null;
+    if ("BarcodeDetector" in window){ const img = await createImageBitmap(f); const r = await new BarcodeDetector({ formats: ["ean_13","upc_a","ean_8","upc_e"] }).detect(img); code = r && r[0] && r[0].rawValue; }
+    if (!code){ const Z = await loadZXing(); const res = await new Z.BrowserMultiFormatReader(zxHints(Z)).decodeFromImageUrl(url); code = res && res.getText(); }
+    if (code) onCode(code); else throw 0;
+  } catch(err){ $("scanMsg").textContent = "Non riesco a leggere il codice: riprova più vicino e con più luce, oppure scrivilo."; }
+  finally { URL.revokeObjectURL(url); }
+});
+async function onCode(code){
+  if (scanDone && !$("scanOv").hidden && $("scanMsg").dataset.busy) return;
+  code = String(code).replace(/\D/g, "");
+  stopScanner();
+  try { navigator.vibrate && navigator.vibrate(60); } catch(e){}
+  $("scanMsg").dataset.busy = "1";
+  $("scanMsg").textContent = `Codice ${code}: cerco il disco…`;
+  let info = null;
+  try { info = await lookupBarcode(code); } catch(e){}
+  delete $("scanMsg").dataset.busy;
+  $("scanOv").hidden = true;
+  if ($("formOv").hidden) openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null);
+  applyLookup(code, info);
+}
+const dup = (artist, album, code) => state.discs.find(d => (code && d.barcode === code) || (artist && album && norm(d.artist) === norm(artist) && norm(d.album) === norm(album)));
+async function lookupBarcode(code){
+  const token = (getMeta().discogsToken || "").trim();
+  if (token){
+    try {
+      const r = await fetch(`https://api.discogs.com/database/search?barcode=${code}&type=release&per_page=5&token=${encodeURIComponent(token)}`);
+      if (r.ok){
+        const j = await r.json(); const hit = (j.results || []).find(x => (x.format || []).some(f => /vinyl|lp/i.test(f))) || (j.results || [])[0];
+        if (hit){
+          let rel = null; try { const r2 = await fetch(`https://api.discogs.com/releases/${hit.id}?token=${encodeURIComponent(token)}`); if (r2.ok) rel = await r2.json(); } catch(e){}
+          const [a, ...rest] = String(hit.title || "").split(" - ");
+          const artist = rel?.artists?.map(x => x.name.replace(/\s\(\d+\)$/, "")).join(", ") || a;
+          const vinylFmt = (rel?.formats || []).find(f => /vinyl/i.test(f.name));
+          return { source: "Discogs", artist, album: rel?.title || rest.join(" - "), year: rel?.year || parseInt(hit.year, 10) || null,
+            genres: [...new Set([...(rel?.genres || hit.genre || []), ...(rel?.styles || hit.style || [])])].slice(0, 4),
+            vinyl: vinylFmt?.text || null, vinylNotes: vinylFmt ? [...(vinylFmt.descriptions || [])].join(", ") || null : null,
+            tracks: (rel?.tracklist || []).filter(t => !t.type_ || t.type_ === "track").map(t => t.title).join("\n") || null,
+            cover: hit.cover_image || rel?.images?.[0]?.uri || null };
+        }
+      }
+    } catch(e){}
+  }
+  try {
+    const r = await fetch(`https://musicbrainz.org/ws/2/release/?query=barcode:${code}&fmt=json&limit=5`);
+    if (r.ok){
+      const j = await r.json(); const rels = j.releases || [];
+      const hit = rels.find(x => (x.media || []).some(m => /vinyl/i.test(m.format || ""))) || rels[0];
+      if (hit){
+        let full = null; try { const r2 = await fetch(`https://musicbrainz.org/ws/2/release/${hit.id}?inc=recordings+genres+release-groups&fmt=json`); if (r2.ok) full = await r2.json(); } catch(e){}
+        const year = parseInt((full?.["release-group"]?.["first-release-date"] || hit.date || "").slice(0,4), 10) || null;
+        const genres = [...(full?.genres || []), ...(full?.["release-group"]?.genres || [])].sort((a,b) => (b.count||0) - (a.count||0)).map(g => g.name.replace(/\b\w/g, c => c.toUpperCase()));
+        return { source: "MusicBrainz", artist: (hit["artist-credit"] || []).map(a => a.name + (a.joinphrase || "")).join("").trim(), album: hit.title, year,
+          genres: [...new Set(genres)].slice(0, 3), vinyl: null, vinylNotes: null,
+          tracks: (full?.media || []).flatMap(m => (m.tracks || []).map(t => t.title)).join("\n") || null,
+          cover: `https://coverartarchive.org/release/${hit.id}/front-500` };
+      }
+    }
+  } catch(e){}
+  try {
+    const r = await fetch(`https://itunes.apple.com/lookup?upc=${code}&entity=song&country=it`);
+    const j = await r.json(); const al = (j.results || []).find(x => x.wrapperType === "collection");
+    if (al) return { source: "Apple Music", artist: al.artistName, album: al.collectionName, year: parseInt((al.releaseDate || "").slice(0,4), 10) || null,
+      genres: al.primaryGenreName ? [al.primaryGenreName] : [], vinyl: null, vinylNotes: null,
+      tracks: (j.results || []).filter(x => x.wrapperType === "track").map(x => x.trackName).join("\n") || null,
+      cover: al.artworkUrl100 ? al.artworkUrl100.replace(/\/\d+x\d+bb\./, "/600x600bb.") : null };
+  } catch(e){}
+  return null;
+}
+function applyLookup(code, info){
+  state.formBarcode = code;
+  if (!info){ $("fScanHint").textContent = `Codice ${code}: non ho trovato il disco. Compila artista e album e usa «Cerca online».`; return; }
+  const set = (id, v) => { if (v && !$(id).value.trim()) $(id).value = v; };
+  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); set("fVinylNotes", info.vinylNotes);
+  if (info.tracks && !$("fTracks").value.trim()) $("fTracks").value = cleanTracks(info.tracks);
+  if (info.genres && info.genres.length && !state.fgenres.length){ state.fgenres = info.genres.map(g => allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g); drawGenres(); }
+  if (info.cover && !state.pending) state.pending = { type: "url", url: info.cover };
+  drawFormCover();
+  const d = dup(info.artist, info.album, code);
+  const where = d ? (d.list === "wish" ? "nella wishlist" : d.list === "incoming" ? "tra i dischi in arrivo" : "nella collezione") : "";
+  $("fScanHint").innerHTML = `Trovato su <b>${esc(info.source)}</b>: controlla i dati e premi Salva.` + (d ? `<br><span style="color:#e08a7c">Attenzione: «${esc(d.album)}» di ${esc(d.artist)} è già ${where}.</span>` : "");
+}
+$("fScan").onclick = () => openScanner();
+$("scanBtn").onclick = () => { openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null); openScanner(); };
+
 /* ---------- Conferma ---------- */
 function askConfirm(title, text, ok = "Conferma", danger = false){
   return new Promise(resolve => {
@@ -728,6 +890,10 @@ function cleanTracks(t){
   return String(t || "").split("\n").map(l => l.trim()).filter(l => l && !SIDE_RE.test(l))
     .map(l => l.replace(/^(?:[A-H]\d{1,2}[\.\)\-:]?|[A-H][\.\)]|\d{1,3}[\.\)\-:])\s+(?=\S)/, "").trim()).filter(Boolean).join("\n");
 }
+// Stelle con riempimento parziale (mezza stella disegnata, non "½")
+function starsHTML(r){
+  return [1,2,3,4,5].map(i => { const f = Math.max(0, Math.min(1, r - (i - 1))) * 100; return `<span class="sg" style="--f:${f}%">★</span>`; }).join("");
+}
 function tracksHTML(t){
   const lines = String(t || "").split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return "";
@@ -743,7 +909,7 @@ async function openDetail(id){
         <h3 style="margin-bottom:8px">${esc(d.album)}</h3>
         <button class="art" id="dArtist">${esc(d.artist)}</button>
         <div class="yr">${d.year ? `Uscito nel ${d.year}` : "Anno non indicato"}</div>
-        ${d.rating ? `<div class="yr" style="color:var(--accent);letter-spacing:2px">${"★".repeat(Math.floor(d.rating))}${d.rating % 1 ? "½" : ""}<span style="color:#5d4c39">${"★".repeat(5 - Math.ceil(d.rating))}</span></div>` : ""}
+        ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
           ${d.vinyl ? `<span class="chip vin" style="--vc:${vinylDot(d.vinyl)}"><i></i>${esc(d.vinyl)}</span>` : ""}
@@ -821,7 +987,9 @@ function openForm(d, list){
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.year || "";
   $("fVinyl").value = d?.vinyl || ""; $("fVinylNotes").value = d?.vinylNotes || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
-  $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = "";
+  $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
+  state.formBarcode = d?.barcode || null;
+  $("fScan").hidden = !!d;
   drawGenres(); drawSwatches(); drawFormCover();
   $("formOv").hidden = false; $("form").scrollTop = 0;
 }
@@ -870,6 +1038,7 @@ $("form").addEventListener("submit", async e => {
   const data = { ...(prev || {}), id, artist, album, year, genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: $("fVinyl").value.trim() || null, vinylNotes: $("fVinylNotes").value.trim() || null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
+    barcode: state.formBarcode || prev?.barcode || null,
     createdAt: prev?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   if (state.formList) data.list = state.formList; else delete data.list;
   const p = state.pending;
@@ -932,6 +1101,7 @@ function parseBackup(text){
     ...(d.list === "wish" || d.list === "incoming" ? { list: d.list } : {}),
     ...(Number(d.rating) > 0 ? { rating: Math.round(Number(d.rating) * 2) / 2 } : {}),
     ...(d.discogsId ? { discogsId: String(d.discogsId) } : {}),
+    ...(d.barcode ? { barcode: String(d.barcode) } : {}),
     createdAt: typeof d.createdAt === "string" ? d.createdAt : new Date().toISOString() }));
   if (!out.length) throw new Error("Nel file non ho trovato dischi.");
   if (data && data.artistInfo && typeof data.artistInfo === "object") out.artistInfo = data.artistInfo;
@@ -977,6 +1147,7 @@ function openMenu(msg){
     <p>I dischi sono salvati su questo dispositivo e funzionano anche offline.</p>
     <button class="item" id="mExport">Esporta backup<small>${state.discs.length} dischi in un file .json · ${esc(lastBackupText())}</small></button>
     <button class="item" id="mImport">Importa backup<small>Sostituisce la collezione di questo dispositivo</small></button>
+    <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
     <button class="item" id="mOffline">Salva le copertine per l'uso offline<small>${state.discs.filter(d => d.coverUrl && !d.coverLocal).length} copertine online · serve internet</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
@@ -987,6 +1158,23 @@ function openMenu(msg){
   $("mExport").onclick = async () => { $("mOk").textContent = await exportBackup(); render(); };
   $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
   $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
+  $("mDiscogs").onclick = () => {
+    const cur = getMeta().discogsToken || "";
+    $("menu").innerHTML = `<h3>Discogs</h3>
+      <p>Con il tuo codice personale Discogs la scansione trova quasi tutti i vinili, compresi colore ed edizione. Il codice resta solo su questo telefono e non finisce nel backup.</p>
+      <p style="font-size:13px">Per crearlo: su discogs.com entra nel tuo account → <b>Settings</b> → <b>Developers</b> → <b>Generate new token</b>, poi copialo qui.</p>
+      <input class="field" id="dgTok" placeholder="Incolla qui il codice" value="${esc(cur)}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="err" id="dgErr"></div>
+      <div class="actions">${cur ? `<button class="btn ghost" id="dgDel">Scollega</button>` : ""}<button class="btn ghost" id="dgNo">Annulla</button><button class="btn" id="dgYes">Salva</button></div>`;
+    $("dgNo").onclick = () => openMenu();
+    if (cur) $("dgDel").onclick = async () => { if (!(await askConfirm("Scollegare Discogs?", "La scansione userà solo MusicBrainz e Apple Music.", "Scollega", true))) return; setMeta("discogsToken", null); openMenu("Discogs scollegato."); };
+    $("dgYes").onclick = async () => {
+      const t = $("dgTok").value.trim(); if (!t){ $("dgErr").textContent = "Incolla il codice."; return; }
+      $("dgErr").textContent = "";
+      try { const r = await fetch(`https://api.discogs.com/oauth/identity?token=${encodeURIComponent(t)}`); if (!r.ok) throw 0; const j = await r.json(); setMeta("discogsToken", t); openMenu(`Discogs collegato${j.username ? " come " + j.username : ""}.`); }
+      catch(e){ if (!navigator.onLine){ setMeta("discogsToken", t); openMenu("Codice salvato: lo verificherò alla prima scansione."); } else $("dgErr").textContent = "Il codice non funziona: controlla di averlo copiato tutto."; }
+    };
+  };
   $("mOffline").onclick = async () => {
     if (!navigator.onLine){ $("mErr").textContent = "Serve la connessione a internet."; return; }
     const todo = state.discs.filter(d => d.coverUrl && !d.coverLocal);
