@@ -316,7 +316,7 @@ textarea.field{resize:vertical;line-height:1.5}
     <label for="fVinylNotes">Note vinile</label>
     <textarea class="field" id="fVinylNotes" rows="2" placeholder="Stampa, edizione limitata, numerazione, condizioni…"></textarea>
     <label for="fTracks">Tracklist</label>
-    <textarea class="field" id="fTracks" rows="6" placeholder="Un brano per riga. Per dividere i lati scrivi «Lato A», «Lato B»…"></textarea>
+    <textarea class="field" id="fTracks" rows="6" placeholder="Un brano per riga"></textarea>
     <label for="fNotes">Note</label>
     <textarea class="field" id="fNotes" rows="3" placeholder="Dove l'hai preso, ricordi, impressioni…"></textarea>
     <label>Colore della costina</label>
@@ -344,7 +344,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.9";
+const APP_VERSION = "1.10";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -409,9 +409,8 @@ async function fetchTracks(collectionId){
     const r = await fetch(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song&country=it`);
     const j = await r.json();
     const songs = (j.results || []).filter(x => x.wrapperType === "track").sort((a,b) => (a.discNumber - b.discNumber) || (a.trackNumber - b.trackNumber));
-    const multi = new Set(songs.map(s => s.discNumber)).size > 1;
-    const out = []; let last = null;
-    for (const s of songs){ if (multi && s.discNumber !== last){ out.push(`Disco ${s.discNumber}`); last = s.discNumber; } out.push(s.trackName); }
+    const out = [];
+    for (const s of songs) out.push(s.trackName);
     return out.join("\n");
   } catch(e){ return ""; }
 }
@@ -723,11 +722,16 @@ function askConfirm(title, text, ok = "Conferma", danger = false){
 }
 
 /* ---------- Scheda ---------- */
+const SIDE_RE = /^(lato|side|disco|disc|cd)\s*[a-z0-9]{0,3}\s*:?$/i;
+// Solo l'elenco dei brani: niente "Lato A", "Disco 2", numeri o sigle tipo A1
+function cleanTracks(t){
+  return String(t || "").split("\n").map(l => l.trim()).filter(l => l && !SIDE_RE.test(l))
+    .map(l => l.replace(/^(?:[A-H]\d{1,2}[\.\)\-:]?|[A-H][\.\)]|\d{1,3}[\.\)\-:])\s+(?=\S)/, "").trim()).filter(Boolean).join("\n");
+}
 function tracksHTML(t){
   const lines = String(t || "").split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return "";
-  let n = 0;
-  return `<ol class="tracks">${lines.map(l => /^(lato|side|disco|disc)\s+\S+$/i.test(l) ? `<li class="side">${esc(l)}</li>` : `<li value="${++n}">${esc(l.replace(/^\d+[\.\)]\s*/, ""))}</li>`).join("")}</ol>`;
+  return `<ol class="tracks">${cleanTracks(lines.join("\n")).split("\n").map(l => `<li>${esc(l)}</li>`).join("")}</ol>`;
 }
 async function openDetail(id){
   const d = state.discs.find(x => x.id === id); if (!d) return;
@@ -865,7 +869,7 @@ $("form").addEventListener("submit", async e => {
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: $("fVinyl").value.trim() || null, vinylNotes: $("fVinylNotes").value.trim() || null,
-    tracks: $("fTracks").value.trim() || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
+    tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
     createdAt: prev?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   if (state.formList) data.list = state.formList; else delete data.list;
   const p = state.pending;
@@ -908,7 +912,7 @@ async function exportBackup(){
 }
 async function exportCSV(){
   const cols = ["Artista","Album","Anno","Genere","Colore vinile","Note vinile","Tracklist","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.vinylNotes || "", (d.tracks || "").split("\n").join(" / "), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.vinylNotes || "", cleanTracks(d.tracks).split("\n").join(" / "), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
@@ -921,7 +925,7 @@ function parseBackup(text){
     id: String(d.id || "v" + Math.random().toString(36).slice(2,10)), artist: d.artist.trim(), album: d.album.trim(), year: parseInt(d.year, 10) || null,
     genres: Array.isArray(d.genres) ? d.genres.filter(g => typeof g === "string").slice(0, 20) : null,
     vinyl: typeof d.vinyl === "string" ? d.vinyl : null, vinylNotes: typeof d.vinylNotes === "string" ? d.vinylNotes : null,
-    tracks: typeof d.tracks === "string" ? d.tracks : null, notes: typeof d.notes === "string" ? d.notes : null,
+    tracks: typeof d.tracks === "string" ? (cleanTracks(d.tracks) || null) : null, notes: typeof d.notes === "string" ? d.notes : null,
     color: typeof d.color === "string" && /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : null,
     coverUrl: typeof d.coverUrl === "string" && /^https:\/\//.test(d.coverUrl) ? d.coverUrl : null, coverLocal: false,
     coverData: typeof d.coverData === "string" && /^data:image\//.test(d.coverData) ? d.coverData : null,
@@ -1005,6 +1009,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (!$("cfO
 /* ---------- Avvio ---------- */
 $("credits").innerHTML = `<b>I miei vinili</b><br>Versione ${APP_VERSION} · by Massimo Merigo`;
 state.discs = load();
+{ let ch = false; state.discs = state.discs.map(d => { if (!d.tracks) return d; const c = cleanTracks(d.tracks) || null; if (c !== d.tracks){ ch = true; return { ...d, tracks: c }; } return d; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
 state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
 showView((location.hash || "").slice(1), false);
