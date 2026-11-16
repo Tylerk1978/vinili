@@ -70,7 +70,11 @@ textarea.field{resize:vertical;line-height:1.5}
 .controls .search{flex:1 1 240px;position:relative}
 .controls .search input{padding-left:38px}
 .controls .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.6}
-.controls select{flex:1 1 90px;min-width:0}
+.controls .search{flex:1 1 100%}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.filters select{min-width:0}
+.clearf{background:transparent;border:1px solid #5d4c39;color:var(--ink);border-radius:12px;padding:11px 14px;font:600 15px Inter,sans-serif;cursor:pointer}
+.clearf:disabled{opacity:.4;cursor:default}
 .letters{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 4px}
 .letters button{min-width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;padding:0 6px}
 .letters button:disabled{opacity:.25;cursor:default}
@@ -274,9 +278,12 @@ textarea.field{resize:vertical;line-height:1.5}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input class="field" id="q" type="search" placeholder="Cerca artista, album o canzone" autocomplete="off">
     </div>
-    <select class="field" id="artistSel"><option value="">Artisti</option></select>
-    <select class="field" id="genreSel"><option value="">Generi</option></select>
-    <select class="field" id="yearSel"><option value="">Anni</option></select>
+    <div class="filters">
+      <select class="field" id="artistSel"><option value="">Artisti</option></select>
+      <select class="field" id="genreSel"><option value="">Generi</option></select>
+      <select class="field" id="yearSel"><option value="">Anni</option></select>
+      <button type="button" class="clearf" id="clearFilters">Cancella filtri</button>
+    </div>
   </div>
   <div class="viewtoggle" id="viewToggle"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
   <div class="letters" id="letters"></div>
@@ -374,7 +381,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.15";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -533,15 +540,13 @@ function renderColl(){
   const artists = [...new Set(collection().map(d => d.artist).filter(Boolean))].sort((a,b) => a.localeCompare(b, "it", { sensitivity: "base" }));
   if (state.fartist && !artists.includes(state.fartist)) state.fartist = "";
   $("artistSel").innerHTML = `<option value="">Artisti</option>` + artists.map(a => `<option value="${esc(a)}" ${a === state.fartist ? "selected" : ""}>${esc(a)}</option>`).join("");
-  $("artistSel").hidden = !artists.length;
   const genres = allGenres();
   if (state.genre && !genres.includes(state.genre)) state.genre = "";
   $("genreSel").innerHTML = `<option value="">Generi</option>` + genres.map(g => `<option ${g === state.genre ? "selected" : ""}>${esc(g)}</option>`).join("");
-  $("genreSel").hidden = !genres.length;
   const years = [...new Set(collection().map(d => d.year).filter(Boolean))].sort((a,b) => b - a);
   if (state.year && !years.includes(Number(state.year))) state.year = "";
   $("yearSel").innerHTML = `<option value="">Anni</option>` + years.map(y => `<option value="${y}" ${String(y) === String(state.year) ? "selected" : ""}>${y}</option>`).join("");
-  $("yearSel").hidden = !years.length;
+  $("clearFilters").disabled = !(state.q || state.fartist || state.genre || state.year);
   $("artistList").innerHTML = [...new Set(state.discs.map(d => d.artist))].sort().map(a => `<option value="${esc(a)}">`).join("");
   const all = collection();
   const list = all.filter(d => matchQ(d, state.q) && (!state.fartist || d.artist === state.fartist) && (!state.genre || (d.genres || []).includes(state.genre)) && (!state.year || String(d.year) === String(state.year))).sort(discSort);
@@ -596,6 +601,7 @@ function renderLists(){
 }
 $("q").addEventListener("input", e => { state.q = e.target.value.trim(); renderColl(); });
 $("lq").addEventListener("input", e => { state.lq = e.target.value.trim(); renderLists(); });
+$("clearFilters").addEventListener("click", () => { state.q = ""; $("q").value = ""; state.fartist = ""; state.genre = ""; state.year = ""; renderColl(); window.scrollTo({ top: 0, behavior: "smooth" }); });
 $("artistSel").addEventListener("change", e => { state.fartist = e.target.value; renderColl(); });
 $("genreSel").addEventListener("change", e => { state.genre = e.target.value; renderColl(); });
 $("yearSel").addEventListener("change", e => { state.year = e.target.value; renderColl(); });
