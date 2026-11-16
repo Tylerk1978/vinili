@@ -188,9 +188,14 @@ textarea.field{resize:vertical;line-height:1.5}
     <div class="card-body"><div class="card-title">Collezione</div><div class="card-sub" id="homeCollSub"></div></div>
     <span class="chev">›</span>
   </button>
-  <button class="card" id="goLists">
-    <div class="card-art" id="homeLists"></div>
-    <div class="card-body"><div class="card-title" id="listsTitle">Wishlist <span style="color:var(--muted)">/</span> In arrivo</div><div class="card-sub" id="homeListsSub"></div></div>
+  <button class="card" id="goWish">
+    <div class="card-art" id="homeWish"></div>
+    <div class="card-body"><div class="card-title">Wishlist</div><div class="card-sub" id="homeWishSub"></div></div>
+    <span class="chev">›</span>
+  </button>
+  <button class="card" id="goInc">
+    <div class="card-art" id="homeInc"></div>
+    <div class="card-body"><div class="card-title">In arrivo</div><div class="card-sub" id="homeIncSub"></div></div>
     <span class="chev">›</span>
   </button>
   <footer class="credits" id="credits"></footer>
@@ -212,7 +217,7 @@ textarea.field{resize:vertical;line-height:1.5}
   <div class="controls">
     <div class="search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input class="field" id="lq" type="search" placeholder="Cerca nella wishlist e tra gli ordinati" autocomplete="off">
+      <input class="field" id="lq" type="search" placeholder="Cerca artista o album" autocomplete="off">
     </div>
   </div>
   <div id="listsMain"></div>
@@ -279,7 +284,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { discs: [], view: "home", q: "", genre: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -365,23 +370,26 @@ function spineHTML(d, extra = ""){
     <span class="txt"><span class="ar">${esc(d.artist)}</span><span class="al">${esc(d.album)}</span></span></button>`;
 }
 const spineSpan = d => spineHTML(d).trim().replace(/^<button/, "<span").replace(/<\/button>$/, "</span>");
+const BOX_SVG = `<svg class="disc" viewBox="0 0 100 100" aria-hidden="true"><path d="M18 38 L50 24 L82 38 L82 74 L50 88 L18 74 Z" fill="#b8874f"/><path d="M18 38 L50 52 L82 38 L50 24 Z" fill="#d9a65a"/><path d="M50 52 L50 88" stroke="#8a6332" stroke-width="2"/><path d="M34 31 L66 45" stroke="#e8d3a6" stroke-width="6" opacity=".8"/></svg>`;
 const DISC_SVG = `<svg class="disc" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#0b0b0b"/>${[42,36,30,24].map(r => `<circle cx="50" cy="50" r="${r}" fill="none" stroke="#262626" stroke-width="1"/>`).join("")}<circle cx="50" cy="50" r="15" fill="#d9a65a"/><circle cx="50" cy="50" r="2.5" fill="#0b0b0b"/><path d="M20 30 A36 36 0 0 1 40 15" stroke="#fff" stroke-opacity=".18" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
 
 /* ---------- Pagine ---------- */
 function showView(v, push = true){
-  if (!["home","collezione","liste"].includes(v)) v = "home";
+  if (!["home","collezione","wishlist","inarrivo"].includes(v)) v = "home";
+  if (state.view !== v){ state.lq = ""; $("lq").value = ""; }
   state.view = v;
-  $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = v !== "liste";
+  $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
   $("backBtn").hidden = v === "home"; $("addBtn").hidden = v === "home";
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
 window.addEventListener("popstate", () => showView((location.hash || "").slice(1), false));
 $("goColl").onclick = () => showView("collezione");
-$("goLists").onclick = () => showView("liste");
+$("goWish").onclick = () => showView("wishlist");
+$("goInc").onclick = () => showView("inarrivo");
 $("backBtn").onclick = () => showView("home");
 $("homeLink").onclick = () => showView("home");
-$("addBtn").onclick = () => openForm(null, state.view === "liste" ? "wish" : null);
+$("addBtn").onclick = () => openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null);
 
 function render(){
   const coll = collection();
@@ -393,10 +401,11 @@ function renderHome(){
   const deco = PALETTE.slice(0, 9).map((c, i) => ({ id: "d" + i, artist: "", album: "", color: c }));
   $("homeColl").innerHTML = (coll.length ? coll.slice(0, 11) : deco).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("");
   $("homeCollSub").textContent = coll.length ? `${coll.length} ${coll.length === 1 ? "disco" : "dischi"} in ordine alfabetico` : "Aggiungi il tuo primo disco";
-  $("homeLists").innerHTML = [...wish, ...inc, ...deco].slice(0, 7).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("") + DISC_SVG;
-  $("homeListsSub").textContent = (wish.length || inc.length) ? `${wish.length} in wishlist · ${inc.length} in arrivo` : "Dischi da comprare e già ordinati";
+  $("homeWish").innerHTML = [...wish, ...deco].slice(0, 7).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("") + DISC_SVG;
+  $("homeWishSub").textContent = wish.length ? `${wish.length} ${wish.length === 1 ? "disco" : "dischi"} da comprare` : "I dischi che vorresti";
+  $("homeInc").innerHTML = [...inc, ...deco.slice(3)].slice(0, 7).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("") + BOX_SVG;
+  $("homeIncSub").textContent = inc.length ? `${inc.length} ${inc.length === 1 ? "disco ordinato" : "dischi ordinati"}` : "Ordinati, non ancora arrivati";
   $("homeBanner").innerHTML = bannerHTML();
-  requestAnimationFrame(() => { const t = $("listsTitle"); if (!t.offsetParent) return; let fs = 30; t.style.fontSize = fs + "px"; while (t.scrollWidth > t.clientWidth && fs > 14){ fs -= .5; t.style.fontSize = fs + "px"; } });
 }
 function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)); }
 // Rimpicciolisce il testo di ogni costina finché artista e titolo ci stanno interi
@@ -446,7 +455,7 @@ function renderLists(){
     return `<div class="sechead"><h2>${label}</h2><span>${q ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`}</span><button class="linkbtn add" data-add="${k}">+ Aggiungi</button></div>
       <div class="case"><div class="shelf">${list.length ? list.map(d => `<div class="slot">${spineHTML(d, d.id === state.newId ? "new" : "")}</div>`).join("") : `<div class="empty-row">${q ? "Nessun disco corrisponde" : empty}</div>`}</div></div>`;
   };
-  $("listsMain").innerHTML = sec("wish", "Wishlist", "I dischi che vorresti comprare") + sec("incoming", "In arrivo", "I dischi ordinati e non ancora arrivati");
+  $("listsMain").innerHTML = state.view === "inarrivo" ? sec("incoming", "In arrivo", "I dischi ordinati e non ancora arrivati") : sec("wish", "Wishlist", "I dischi che vorresti comprare");
   requestAnimationFrame(() => fitSpines($("listsMain")));
 }
 $("q").addEventListener("input", e => { state.q = e.target.value.trim(); renderColl(); });
@@ -500,7 +509,7 @@ async function openDetail(id){
         </div>
       </div>
     </div>
-    ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Ce l'ho già: mettilo in collezione</button>` : ""}
+    ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
     ${d.vinylNotes ? `<div class="dsec"><h4>Note vinile</h4><div class="box">${esc(d.vinylNotes)}</div></div>` : ""}
