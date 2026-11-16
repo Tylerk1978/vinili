@@ -70,7 +70,7 @@ textarea.field{resize:vertical;line-height:1.5}
 .controls .search{flex:1 1 240px;position:relative}
 .controls .search input{padding-left:38px}
 .controls .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.6}
-.controls select{flex:0 1 220px}
+.controls select{flex:1 1 150px}
 .letters{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 4px}
 .letters button{min-width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;padding:0 6px}
 .letters button:disabled{opacity:.25;cursor:default}
@@ -208,6 +208,7 @@ textarea.field{resize:vertical;line-height:1.5}
       <input class="field" id="q" type="search" placeholder="Cerca artista, album o canzone" autocomplete="off">
     </div>
     <select class="field" id="genreSel"><option value="">Tutti i generi</option></select>
+    <select class="field" id="yearSel"><option value="">Tutti gli anni</option></select>
   </div>
   <div class="letters" id="letters"></div>
   <div id="collMain"></div>
@@ -284,10 +285,10 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
-const state = { discs: [], view: "home", q: "", genre: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
+const state = { discs: [], view: "home", q: "", genre: "", year: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -426,9 +427,13 @@ function renderColl(){
   if (state.genre && !genres.includes(state.genre)) state.genre = "";
   $("genreSel").innerHTML = `<option value="">Tutti i generi</option>` + genres.map(g => `<option ${g === state.genre ? "selected" : ""}>${esc(g)}</option>`).join("");
   $("genreSel").hidden = !genres.length;
+  const years = [...new Set(collection().map(d => d.year).filter(Boolean))].sort((a,b) => b - a);
+  if (state.year && !years.includes(Number(state.year))) state.year = "";
+  $("yearSel").innerHTML = `<option value="">Tutti gli anni</option>` + years.map(y => `<option value="${y}" ${String(y) === String(state.year) ? "selected" : ""}>${y}</option>`).join("");
+  $("yearSel").hidden = !years.length;
   $("artistList").innerHTML = [...new Set(state.discs.map(d => d.artist))].sort().map(a => `<option value="${esc(a)}">`).join("");
   const all = collection();
-  const list = all.filter(d => matchQ(d, state.q) && (!state.genre || (d.genres || []).includes(state.genre))).sort(discSort);
+  const list = all.filter(d => matchQ(d, state.q) && (!state.genre || (d.genres || []).includes(state.genre)) && (!state.year || String(d.year) === String(state.year))).sort(discSort);
   const present = new Set(list.map(letterOf));
   $("letters").innerHTML = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => `<button data-l="${l}" ${present.has(l) ? "" : "disabled"}>${l}</button>`).join("");
   $("letters").hidden = list.length < 15;
@@ -445,7 +450,7 @@ function renderColl(){
   }
   html += "</div>";
   requestAnimationFrame(() => fitSpines($("collMain")));
-  $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${state.q || state.genre ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`}</span></div><div class="case">${html}</div>`;
+  $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${state.q || state.genre || state.year ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`}</span></div><div class="case">${html}</div>`;
   state.newId = null;
 }
 function renderLists(){
@@ -461,6 +466,7 @@ function renderLists(){
 $("q").addEventListener("input", e => { state.q = e.target.value.trim(); renderColl(); });
 $("lq").addEventListener("input", e => { state.lq = e.target.value.trim(); renderLists(); });
 $("genreSel").addEventListener("change", e => { state.genre = e.target.value; renderColl(); });
+$("yearSel").addEventListener("change", e => { state.year = e.target.value; renderColl(); });
 $("letters").addEventListener("click", e => { const b = e.target.closest("button[data-l]"); if (!b || b.disabled) return; const el = $("L-" + b.dataset.l); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" }); });
 $("collMain").addEventListener("click", e => {
   if (e.target.id === "wAdd") return openForm(null, null);
