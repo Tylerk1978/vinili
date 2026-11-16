@@ -385,7 +385,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.18";
+const APP_VERSION = "1.19";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1219,19 +1219,55 @@ async function shareOrDownload(file, okMsg){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   return okMsg;
 }
-async function exportBackup(){
-  const discs = [];
+const toDataURL = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+// Prepara il file a pezzi, così anche con centinaia di foto non esaurisce la memoria del telefono.
+async function prepareBackup(progress){
+  const parts = []; let chunk = [];
+  const flush = () => { if (chunk.length){ parts.push(new Blob(chunk)); chunk = []; } };
+  const m = getMeta();
+  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: artistUrlMap(), artistAuto: artistAutoMap(), artistManual: m.artistManual || {} });
+  parts.push(head.slice(0, -1) + ',"artistPhotos":{');
+  const keys = [...new Set(state.discs.map(d => akey(d.artist)))];
+  const total = keys.length + state.discs.length; let n = 0, first = true;
+  for (const k of keys){
+    try { const b = await idb.get("artist:" + k); if (b){ chunk.push((first ? "" : ",") + JSON.stringify(k) + ":" + JSON.stringify(await toDataURL(b))); first = false; } } catch(e){}
+    if (chunk.length >= 25) flush();
+    if (++n % 20 === 0) progress(`Preparo il backup… ${Math.round(n / total * 100)}%`);
+  }
+  flush(); parts.push('},"discs":['); first = true;
   for (const d of state.discs){
     const c = { ...d };
-    if (d.coverLocal){ try { const b = await idb.get(d.id); if (b) c.coverData = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }); } catch(e){} }
-    discs.push(c);
+    if (d.coverLocal){ try { const b = await idb.get(d.id); if (b) c.coverData = await toDataURL(b); } catch(e){} }
+    chunk.push((first ? "" : ",") + JSON.stringify(c)); first = false;
+    if (chunk.length >= 25) flush();
+    if (++n % 20 === 0) progress(`Preparo il backup… ${Math.round(n / total * 100)}%`);
   }
-  const artistPhotos = {};
-  for (const k of new Set(state.discs.map(d => akey(d.artist)))){ try { const b = await idb.get("artist:" + k); if (b) artistPhotos[k] = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }); } catch(e){} }
-  const file = new File([JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: getMeta().artistInfo || {}, artistPhotos, artistPhotoUrls: artistUrlMap(), artistAuto: artistAutoMap(), artistManual: getMeta().artistManual || {}, discs })], `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
-  const r = await shareOrDownload(file, "Backup pronto: salvalo su File o iCloud Drive.");
-  if (r){ setMeta("lastBackupAt", new Date().toISOString()); setMeta("snoozeUntil", null); }
-  return r;
+  flush(); parts.push("]}");
+  return new File(parts, `vinili-backup-${new Date().toISOString().slice(0,10)}.json`, { type: "application/json" });
+}
+// Due passaggi: prima prepara il file, poi un tocco su "Salva il backup" apre la condivisione
+// (iPhone la blocca se passa troppo tempo dal tocco iniziale).
+async function exportBackup(){
+  const ok = t => { if ($("mOk")) $("mOk").textContent = t; }, err = t => { if ($("mErr")) $("mErr").textContent = t; };
+  if ($("mExport")) $("mExport").disabled = true;
+  err(""); ok("Preparo il backup…");
+  let file;
+  try { file = await prepareBackup(ok); }
+  catch(e){ ok(""); err("Non riesco a preparare il backup. Riprova; se succede ancora dimmi questo messaggio: " + ((e && (e.message || e.name)) || e)); if ($("mExport")) $("mExport").disabled = false; return; }
+  if ($("mExport")) $("mExport").disabled = false;
+  if (!$("mOk")) return;
+  $("mOk").innerHTML = `Backup pronto (${(file.size / 1048576).toFixed(1)} MB). Ora toccalo per salvarlo:<br><button class="btn" id="mSaveBk" style="margin-top:10px">Salva il backup</button>`;
+  $("mSaveBk").onclick = async () => {
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })){ await navigator.share({ files: [file], title: file.name }); }
+      else { const url = URL.createObjectURL(file); const a = document.createElement("a"); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+      setMeta("lastBackupAt", new Date().toISOString()); setMeta("snoozeUntil", null);
+      ok("Backup pronto: salvalo su File o iCloud Drive."); render();
+    } catch(e){
+      if (e && e.name === "AbortError") return;
+      err("Il salvataggio non è partito: " + ((e && (e.message || e.name)) || e));
+    }
+  };
 }
 async function exportCSV(){
   const cols = ["Artista","Album","Anno","Genere","Colore vinile","Note vinile","Tracklist","Note","Stato"];
@@ -1305,7 +1341,7 @@ function bannerHTML(){
 }
 $("homeBanner").addEventListener("click", async e => {
   if (e.target.id === "bkLater"){ setMeta("snoozeUntil", new Date(Date.now() + 7 * 86400000).toISOString()); render(); }
-  if (e.target.id === "bkNow"){ openMenu(); $("mOk").textContent = await exportBackup(); render(); }
+  if (e.target.id === "bkNow"){ openMenu(); await exportBackup(); }
 });
 function openMenu(msg){
   $("menu").innerHTML = `
@@ -1322,7 +1358,7 @@ function openMenu(msg){
     <p style="text-align:center;font-size:12px;margin-top:14px">Versione ${APP_VERSION}</p>`;
   $("menuOv").hidden = false;
   $("mClose").onclick = () => { $("menuOv").hidden = true; };
-  $("mExport").onclick = async () => { $("mOk").textContent = await exportBackup(); render(); };
+  $("mExport").onclick = () => exportBackup();
   $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
   $("mPhotos").onclick = openArtistPhotosMenu;
   $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
