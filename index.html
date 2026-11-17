@@ -130,6 +130,14 @@ textarea.field{resize:vertical;line-height:1.5}
 .swatches button.on{border-color:var(--ink)}
 .swatches .auto{width:auto;padding:0 10px;background:var(--field);color:var(--muted);font-size:12px;border:1px solid var(--line)}
 .swatches .auto.on{border:2px solid var(--ink);color:var(--ink)}
+.acwrap{position:relative}
+.acbtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);appearance:none;background:none;border:0;color:var(--muted);font-size:16px;width:38px;height:38px;cursor:pointer}
+.acbox{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:5;background:#2a221a;border:1px solid var(--accent);border-radius:12px;max-height:240px;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.acbox button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;appearance:none;background:none;border:0;border-bottom:1px solid #3d3226;color:var(--ink);font:15px Inter,sans-serif;padding:11px 14px;cursor:pointer}
+.acbox button:last-child{border-bottom:0}
+.acbox button small{color:var(--muted);font-size:12px;white-space:nowrap}
+.acbox button:hover,.acbox button.hl{background:#3a2d1f}
+.acbox .acnone{padding:11px 14px;color:var(--muted);font-size:13px}
 .gsel{display:flex;flex-wrap:wrap;gap:6px;min-height:4px}
 .gsel span{display:inline-flex;align-items:center;gap:4px;background:#5a3f1f;border:1px solid var(--accent);color:var(--ink);border-radius:999px;padding:5px 6px 5px 12px;font-size:13px}
 .gsel span button{appearance:none;background:none;border:0;color:var(--muted);font-size:17px;line-height:1;padding:0 4px;cursor:pointer}
@@ -337,11 +345,15 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div class="hint" id="fHint"></div>
     <div class="picks" id="fPicks"></div>
     <label for="fArtist">Artista</label>
-    <input class="field" id="fArtist" list="artistList" autocomplete="off">
+    <div class="acwrap">
+      <input class="field" id="fArtist" autocomplete="off" autocapitalize="words" style="padding-right:44px">
+      <button type="button" class="acbtn" id="fArtistBtn" aria-label="Scegli tra gli artisti">▾</button>
+      <div class="acbox" id="fArtistAc" hidden></div>
+    </div>
     <datalist id="artistList"></datalist>
-    <label for="fAlbum">Album</label>
+    <label for="fAlbum">Titolo dell'album</label>
     <input class="field" id="fAlbum" autocomplete="off">
-    <label for="fYear">Anno</label>
+    <label for="fYear">Anno di pubblicazione</label>
     <input class="field" id="fYear" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Es. 1991">
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
@@ -418,7 +430,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.25";
+const APP_VERSION = "1.27";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1250,6 +1262,7 @@ function openForm(d, list){
   state.pending = null; state.fgenres = [...(d?.genres || [])]; state.color = d?.color || "";
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
+  $("fArtistAc").hidden = true;
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.year || "";
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
@@ -1260,6 +1273,29 @@ function openForm(d, list){
 }
 $("fCancel").onclick = () => { $("formOv").hidden = true; };
 ["fArtist","fAlbum"].forEach(id => $(id).addEventListener("input", () => { if (!state.pending) drawFormCover(); }));
+/* Artista: menu a tendina con gli artisti già presenti */
+function knownArtists(){
+  const m = new Map(); for (const d of state.discs){ if (!d.artist) continue; const k = akey(d.artist); if (!m.has(k)) m.set(k, { name: d.artist, n: 0 }); m.get(k).n++; }
+  return [...m.values()].sort((a,b) => sortName(a.name).localeCompare(sortName(b.name), "it"));
+}
+function drawArtistAc(all){
+  const q = norm($("fArtist").value.trim());
+  let list = knownArtists();
+  if (q && !all){ list = list.filter(a => norm(a.name).includes(q)).sort((a,b) => (!norm(a.name).startsWith(q)) - (!norm(b.name).startsWith(q))); if (list.length === 1 && norm(list[0].name) === q) list = []; }
+  const box = $("fArtistAc");
+  if (!list.length){ box.hidden = true; return; }
+  box.innerHTML = list.map(a => `<button type="button" data-a="${esc(a.name)}">${esc(a.name)}<small>${a.n === 1 ? "1 disco" : a.n + " dischi"}</small></button>`).join("");
+  box.hidden = false; box.scrollTop = 0;
+}
+function pickArtist(name){ $("fArtist").value = name; $("fArtistAc").hidden = true; $("fArtist").dispatchEvent(new Event("input")); }
+$("fArtist").addEventListener("input", e => { if (e.isTrusted) drawArtistAc(false); });
+$("fArtist").addEventListener("focus", () => { if ($("fArtist").value.trim()) drawArtistAc(false); });
+$("fArtist").addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== $("fArtistBtn")) $("fArtistAc").hidden = true; }, 150));
+$("fArtist").addEventListener("keydown", e => { if (e.key === "Escape") $("fArtistAc").hidden = true; });
+$("fArtistBtn").addEventListener("mousedown", e => e.preventDefault());
+$("fArtistBtn").onclick = () => { const box = $("fArtistAc"); if (!box.hidden) { box.hidden = true; return; } drawArtistAc(true); };
+$("fArtistAc").addEventListener("mousedown", e => e.preventDefault());
+$("fArtistAc").onclick = e => { const b = e.target.closest("button[data-a]"); if (b) pickArtist(b.dataset.a); };
 $("fSearch").onclick = async () => {
   const artist = $("fArtist").value.trim(), album = $("fAlbum").value.trim();
   $("fPicks").innerHTML = "";
