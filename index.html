@@ -153,6 +153,9 @@ textarea.field{resize:vertical;line-height:1.5}
 .dinfo .art{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--muted);font-size:16px;text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.45);text-underline-offset:4px}
 .dinfo .yr{color:var(--muted);font-size:14px;margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sortseg{display:inline-flex;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;margin:6px 0 2px}
+.sortseg button{appearance:none;border:0;background:none;color:var(--muted);font:600 13px Inter,sans-serif;padding:7px 14px;border-radius:999px;cursor:pointer}
+.sortseg button.on{background:var(--accent);color:#2a1d0f}
 .chip{background:var(--field);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
 .chip.tag{background:#3a2a17;border-color:#8a6a3a;color:#e6cfa6;cursor:pointer;font-size:11px;padding:3px 9px}
 .chip.vin{display:inline-flex;align-items:center;gap:6px}
@@ -340,6 +343,12 @@ textarea.field{resize:vertical;line-height:1.5}
     <label for="fVinyl">Colore vinile</label>
     <input class="field" id="fVinyl" list="vinylList" placeholder="Es. nero, rosso trasparente, splatter…" autocomplete="off">
     <datalist id="vinylList"><option value="Nero"><option value="Trasparente"><option value="Bianco"><option value="Rosso"><option value="Blu"><option value="Verde"><option value="Giallo"><option value="Arancione"><option value="Viola"><option value="Oro"><option value="Marmorizzato"><option value="Splatter"><option value="Picture disc"></datalist>
+    <div style="display:flex;gap:10px">
+      <div style="flex:0 0 34%"><label for="fDiscs">Numero di dischi</label>
+      <input class="field" id="fDiscs" type="number" inputmode="numeric" min="1" max="99" placeholder="Es. 2"></div>
+      <div style="flex:1"><label for="fLimited">Limited</label>
+      <input class="field" id="fLimited" placeholder="Es. 500 copie, numerata 123/500" autocomplete="off"></div>
+    </div>
     <label for="fVinylNotes">Note vinile</label>
     <textarea class="field" id="fVinylNotes" rows="2" placeholder="Stampa, edizione limitata, numerazione, condizioni…"></textarea>
     <label for="fTracks">Tracklist</label>
@@ -864,6 +873,7 @@ function groups(kind){
   }
   const arr = [...m.entries()].map(([key, v]) => ({ key, label: v.label, items: v.items.sort(discSort) }));
   if (kind === "decennio") return arr.sort((a,b) => a.label.localeCompare(b.label));
+  if (kind === "artista" && getMeta().artistSort === "alfa") return arr.sort((a,b) => sortName(a.label).localeCompare(sortName(b.label), "it"));
   return arr.sort((a,b) => (/^(Senza|Non indicato)/.test(a.label) - /^(Senza|Non indicato)/.test(b.label)) || (b.items.length - a.items.length) || a.label.localeCompare(b.label, "it"));
 }
 const SUBS = { genere: "Per genere", artista: "Per artista", decennio: "Per decennio", colore: "Per colore del vinile" };
@@ -873,6 +883,7 @@ function renderStats(){
   if (sub){
     const gs = groups(sub), max = Math.max(1, ...gs.map(g => g.items.length));
     $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">${SUBS[sub]}</h2>
+      ${sub === "artista" ? (() => { const al = getMeta().artistSort === "alfa"; return `<div class="sortseg"><button data-sort="num" class="${al ? "" : "on"}">Per numero di dischi</button><button data-sort="alfa" class="${al ? "on" : ""}">Alfabetico</button></div>`; })() : ""}
       <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
       ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
         ${open ? `<div class="grp-list">${g.items.map(d => `<button class="grp-item" data-id="${esc(d.id)}"><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}</span></button>`).join("")}</div>` : ""}</div>`; }).join("")}</div>`;
@@ -889,6 +900,7 @@ function renderStats(){
 $("viewStats").addEventListener("click", e => {
   if (e.target.closest("#sBack")){ state.statsSub = null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
   const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  const so = e.target.closest(".sortseg button"); if (so){ setMeta("artistSort", so.dataset.sort === "alfa" ? "alfa" : null); renderStats(); return; }
   const it = e.target.closest(".grp-item"); if (it) return openDetail(it.dataset.id);
   const g = e.target.closest(".grow"); if (!g) return;
   if (state.statsSub === "artista") return openArtist(g.dataset.l, { view: "statistiche", title: "Per artista", scroll: window.scrollY });
@@ -977,7 +989,7 @@ async function lookupBarcode(code){
           const vinylFmt = (rel?.formats || []).find(f => /vinyl/i.test(f.name));
           return { source: "Discogs", artist, album: rel?.title || rest.join(" - "), year: rel?.year || parseInt(hit.year, 10) || null,
             genres: [...new Set([...(rel?.genres || hit.genre || []), ...(rel?.styles || hit.style || [])])].slice(0, 4),
-            vinyl: vinylFmt?.text || null, vinylNotes: vinylFmt ? [...(vinylFmt.descriptions || [])].join(", ") || null : null,
+            vinyl: vinylFmt?.text || null, discs: parseInt(vinylFmt?.qty, 10) || null, vinylNotes: vinylFmt ? [...(vinylFmt.descriptions || [])].join(", ") || null : null,
             tracks: (rel?.tracklist || []).filter(t => !t.type_ || t.type_ === "track").map(t => t.title).join("\n") || null,
             cover: hit.cover_image || rel?.images?.[0]?.uri || null };
         }
@@ -1014,7 +1026,7 @@ function applyLookup(code, info){
   state.formBarcode = code;
   if (!info){ $("fScanHint").textContent = `Codice ${code}: non ho trovato il disco. Compila artista e album e usa «Cerca online».`; return; }
   const set = (id, v) => { if (v && !$(id).value.trim()) $(id).value = v; };
-  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); set("fVinylNotes", info.vinylNotes);
+  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fVinylNotes", info.vinylNotes);
   if (info.tracks && !$("fTracks").value.trim()) $("fTracks").value = cleanTracks(info.tracks);
   if (info.genres && info.genres.length && !state.fgenres.length){ state.fgenres = info.genres.map(g => allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g); drawGenres(); }
   if (info.cover && !state.pending) state.pending = { type: "url", url: info.cover };
@@ -1067,6 +1079,7 @@ async function openDetail(id){
         ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
+          ${d.discs ? `<span class="chip">${d.discs === 1 ? "1 disco" : d.discs + " dischi"}</span>` : ""}
           ${d.vinyl ? `<span class="chip vin" style="--vc:${vinylDot(d.vinyl)}"><i></i>${esc(d.vinyl)}</span>` : ""}
           ${(d.genres || []).map(g => `<button class="chip tag" data-g="${esc(g)}">${esc(g)}</button>`).join("")}
         </div>
@@ -1075,6 +1088,7 @@ async function openDetail(id){
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
+    ${d.limited ? `<div class="dsec"><h4>Limited</h4><div class="box">${esc(d.limited)}</div></div>` : ""}
     ${d.vinylNotes ? `<div class="dsec"><h4>Note vinile</h4><div class="box">${esc(d.vinylNotes)}</div></div>` : ""}
     ${d.notes ? `<div class="dsec"><h4>Note</h4><div class="box">${esc(d.notes)}</div></div>` : ""}
     <div class="actions">
@@ -1141,7 +1155,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.year || "";
-  $("fVinyl").value = d?.vinyl || ""; $("fVinylNotes").value = d?.vinylNotes || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
+  $("fVinyl").value = d?.vinyl || ""; $("fVinylNotes").value = d?.vinylNotes || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
   state.formBarcode = d?.barcode || null;
   $("fScan").hidden = !!d;
@@ -1192,6 +1206,7 @@ $("form").addEventListener("submit", async e => {
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: $("fVinyl").value.trim() || null, vinylNotes: $("fVinylNotes").value.trim() || null,
+    discs: parseInt($("fDiscs").value, 10) > 0 ? parseInt($("fDiscs").value, 10) : null, limited: $("fLimited").value.trim() || null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
     barcode: state.formBarcode || prev?.barcode || null,
     createdAt: prev?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -1289,8 +1304,8 @@ async function exportBackup(){
   };
 }
 async function exportCSV(){
-  const cols = ["Artista","Album","Anno","Genere","Colore vinile","Note vinile","Tracklist","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.vinylNotes || "", cleanTracks(d.tracks).split("\n").join(" / "), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const cols = ["Artista","Album","Anno","Genere","Colore vinile","Numero di dischi","Limited","Note vinile","Tracklist","Note","Stato"];
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", d.vinylNotes || "", cleanTracks(d.tracks).split("\n").join(" / "), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
@@ -1303,6 +1318,7 @@ function parseBackup(text){
     id: String(d.id || "v" + Math.random().toString(36).slice(2,10)), artist: d.artist.trim(), album: d.album.trim(), year: parseInt(d.year, 10) || null,
     genres: Array.isArray(d.genres) ? d.genres.filter(g => typeof g === "string").slice(0, 20) : null,
     vinyl: typeof d.vinyl === "string" ? d.vinyl : null, vinylNotes: typeof d.vinylNotes === "string" ? d.vinylNotes : null,
+    discs: parseInt(d.discs, 10) > 0 ? parseInt(d.discs, 10) : null, limited: typeof d.limited === "string" ? d.limited : null,
     tracks: typeof d.tracks === "string" ? (cleanTracks(d.tracks) || null) : null, notes: typeof d.notes === "string" ? d.notes : null,
     color: typeof d.color === "string" && /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : null,
     coverUrl: typeof d.coverUrl === "string" && /^https:\/\//.test(d.coverUrl) ? d.coverUrl : null, coverLocal: false,
