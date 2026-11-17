@@ -368,6 +368,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <input class="field" id="fAlbum" autocomplete="off">
     <label for="fYear">Data di pubblicazione</label>
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
+    <label for="fDuration">Durata</label>
+    <input class="field" id="fDuration" type="text" autocomplete="off" placeholder="Es. 45:32 oppure 1:12:05">
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -456,7 +458,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.34";
+const APP_VERSION = "1.35";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1223,6 +1225,7 @@ async function lookupBarcode(code){
             vinyl: vinylFmt?.text || null, discs: parseInt(vinylFmt?.qty, 10) || null,
             producer: [...new Set((rel?.extraartists || []).filter(x => /^producer\b/i.test(x.role || "")).map(x => x.name.replace(/\s\(\d+\)$/, "")))].join(", ") || null,
             tracks: (rel?.tracklist || []).filter(t => !t.type_ || t.type_ === "track").map(t => t.title).join("\n") || null,
+            duration: tracksDuration((rel?.tracklist || []).filter(t => !t.type_ || t.type_ === "track")),
             cover: hit.cover_image || rel?.images?.[0]?.uri || null };
         }
       }
@@ -1259,7 +1262,7 @@ function applyLookup(code, info){
   if (info && info.discogsId) state.formDiscogs = { id: info.discogsId, info: info.discogsInfo || null };
   if (!info){ $("fScanHint").textContent = `Codice ${code}: non ho trovato il disco. Compila artista e album e usa «Cerca online».`; return; }
   const set = (id, v) => { if (v && !$(id).value.trim()) $(id).value = v; };
-  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fProducer", info.producer);
+  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fProducer", info.producer); set("fDuration", info.duration);
   if (info.tracks && !$("fTracks").value.trim()) $("fTracks").value = cleanTracks(info.tracks);
   if (info.genres && info.genres.length && !state.fgenres.length){ state.fgenres = info.genres.map(g => allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g); drawGenres(); }
   if (info.cover && !state.pending) state.pending = { type: "url", url: info.cover };
@@ -1309,6 +1312,7 @@ async function openDetail(id){
         <h3 style="margin-bottom:8px">${esc(d.album)}</h3>
         <button class="art" id="dArtist">${esc(d.artist)}</button>
         <div class="yr">${d.releaseDate ? `Uscito il ${fmtDate(d.releaseDate)}` : d.year ? `Uscito nel ${d.year}` : "Data non indicata"}</div>
+        ${d.duration ? `<div class="yr">Durata ${esc(d.duration)}</div>` : ""}
         ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
@@ -1447,7 +1451,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtistAc").hidden = true;
-  $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || "");
+  $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || ""); $("fDuration").value = d?.duration || "";
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
   state.formBarcode = d?.barcode || null; state.formDiscogs = null;
@@ -1525,6 +1529,20 @@ function parseRelease(v){
   if (!ok(y) || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
   return { year: y, date: `${y}-${pad(mo)}-${pad(d)}` };
 }
+// Durata: "45:32", "1:12:05", "45" (minuti) o "45 min" diventano mm:ss / h:mm:ss; altrimenti resta il testo scritto
+function normDuration(v){
+  v = String(v || "").trim(); if (!v) return null;
+  const p2 = n => String(n).padStart(2, "0"), fmt = t => { const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return h ? `${h}:${p2(m)}:${p2(s)}` : `${m}:${p2(s)}`; };
+  let m = v.match(/^(\d{1,2})[:.](\d{1,2})[:.](\d{2})$/); if (m) return fmt(+m[1] * 3600 + +m[2] * 60 + +m[3]);
+  m = v.match(/^(\d{1,3})[:.,'](\d{2})"?$/); if (m) return fmt(+m[1] * 60 + +m[2]);
+  m = v.match(/^(\d{1,3})\s*(min|minuti|')?$/i); if (m) return fmt(+m[1] * 60);
+  return v.slice(0, 40);
+}
+function tracksDuration(list){
+  let t = 0, n = 0;
+  for (const x of list || []){ const m = String(x.duration || "").match(/^(?:(\d+):)?(\d+):(\d{2})$/); if (m){ t += (+m[1] || 0) * 3600 + +m[2] * 60 + +m[3]; n++; } }
+  return n && n >= (list || []).length * 0.8 ? normDuration(`${Math.floor(t / 3600)}:${Math.floor(t % 3600 / 60)}:${String(t % 60).padStart(2, "0")}`) : null;
+}
 const fmtDate = iso => iso.split("-").reverse().join("-");
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
@@ -1536,7 +1554,7 @@ $("form").addEventListener("submit", async e => {
   const prev = state.editing ? state.discs.find(d => d.id === state.editing) : null;
   if (prev && !(await askConfirm("Salvare le modifiche?", `Aggiorno «${album}».`, "Salva"))) return;
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-  const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, genres: state.fgenres.length ? [...state.fgenres] : null,
+  const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, duration: normDuration($("fDuration").value), genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: $("fVinyl").value.trim() || null,
     lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
     discs: parseInt($("fDiscs").value, 10) > 0 ? parseInt($("fDiscs").value, 10) : null, limited: $("fLimited").value.trim() || null,
@@ -1639,8 +1657,8 @@ async function exportBackup(){
   };
 }
 async function exportCSV(){
-  const cols = ["Artista","Album","Anno","Data di pubblicazione","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Etichetta","N. catalogo","Valore (€)","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", d.releaseDate ? fmtDate(d.releaseDate) : "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.discogsInfo?.label || "", d.discogsInfo?.catno || "", (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const cols = ["Artista","Album","Anno","Data di pubblicazione","Durata","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Etichetta","N. catalogo","Valore (€)","Note","Stato"];
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", d.releaseDate ? fmtDate(d.releaseDate) : "", d.duration || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.discogsInfo?.label || "", d.discogsInfo?.catno || "", (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
@@ -1652,6 +1670,7 @@ function parseBackup(text){
   const out = list.filter(d => d && typeof d.artist === "string" && typeof d.album === "string").map(d => ({
     id: String(d.id || "v" + Math.random().toString(36).slice(2,10)), artist: d.artist.trim(), album: d.album.trim(), year: parseInt(d.year, 10) || null,
     ...(typeof d.releaseDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.releaseDate) ? { releaseDate: d.releaseDate } : {}),
+    ...(typeof d.duration === "string" && d.duration.trim() ? { duration: d.duration.trim().slice(0, 40) } : {}),
     genres: Array.isArray(d.genres) ? d.genres.filter(g => typeof g === "string").slice(0, 20) : null,
     vinyl: typeof d.vinyl === "string" ? d.vinyl : null, vinylNotes: typeof d.vinylNotes === "string" ? d.vinylNotes : null,
     lineup: typeof d.lineup === "string" ? d.lineup : null, producer: typeof d.producer === "string" ? d.producer : null,
