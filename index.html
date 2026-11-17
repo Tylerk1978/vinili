@@ -349,10 +349,12 @@ textarea.field{resize:vertical;line-height:1.5}
       <div style="flex:1"><label for="fLimited">Limited</label>
       <input class="field" id="fLimited" placeholder="Es. 500 copie, numerata 123/500" autocomplete="off"></div>
     </div>
-    <label for="fVinylNotes">Note vinile</label>
-    <textarea class="field" id="fVinylNotes" rows="2" placeholder="Stampa, edizione limitata, numerazione, condizioni…"></textarea>
     <label for="fTracks">Tracklist</label>
     <textarea class="field" id="fTracks" rows="6" placeholder="Un brano per riga"></textarea>
+    <label for="fLineup">Line up</label>
+    <textarea class="field" id="fLineup" rows="4" placeholder="Un musicista per riga, es. Kurt Cobain – voce, chitarra"></textarea>
+    <label for="fProducer">Produttore</label>
+    <input class="field" id="fProducer" placeholder="Es. Butch Vig" autocomplete="off">
     <label for="fNotes">Note</label>
     <textarea class="field" id="fNotes" rows="3" placeholder="Dove l'hai preso, ricordi, impressioni…"></textarea>
     <label>Colore della costina</label>
@@ -394,7 +396,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.23";
+const APP_VERSION = "1.24";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1001,7 +1003,8 @@ async function lookupBarcode(code){
           const vinylFmt = (rel?.formats || []).find(f => /vinyl/i.test(f.name));
           return { source: "Discogs", artist, album: rel?.title || rest.join(" - "), year: rel?.year || parseInt(hit.year, 10) || null,
             genres: [...new Set([...(rel?.genres || hit.genre || []), ...(rel?.styles || hit.style || [])])].slice(0, 4),
-            vinyl: vinylFmt?.text || null, discs: parseInt(vinylFmt?.qty, 10) || null, vinylNotes: vinylFmt ? [...(vinylFmt.descriptions || [])].join(", ") || null : null,
+            vinyl: vinylFmt?.text || null, discs: parseInt(vinylFmt?.qty, 10) || null,
+            producer: [...new Set((rel?.extraartists || []).filter(x => /^producer\b/i.test(x.role || "")).map(x => x.name.replace(/\s\(\d+\)$/, "")))].join(", ") || null,
             tracks: (rel?.tracklist || []).filter(t => !t.type_ || t.type_ === "track").map(t => t.title).join("\n") || null,
             cover: hit.cover_image || rel?.images?.[0]?.uri || null };
         }
@@ -1038,7 +1041,7 @@ function applyLookup(code, info){
   state.formBarcode = code;
   if (!info){ $("fScanHint").textContent = `Codice ${code}: non ho trovato il disco. Compila artista e album e usa «Cerca online».`; return; }
   const set = (id, v) => { if (v && !$(id).value.trim()) $(id).value = v; };
-  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fVinylNotes", info.vinylNotes);
+  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fProducer", info.producer);
   if (info.tracks && !$("fTracks").value.trim()) $("fTracks").value = cleanTracks(info.tracks);
   if (info.genres && info.genres.length && !state.fgenres.length){ state.fgenres = info.genres.map(g => allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g); drawGenres(); }
   if (info.cover && !state.pending) state.pending = { type: "url", url: info.cover };
@@ -1100,8 +1103,9 @@ async function openDetail(id){
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
+    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
+    ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${esc(d.producer)}</div></div>` : ""}
     ${d.limited ? `<div class="dsec"><h4>Limited</h4><div class="box">${esc(d.limited)}</div></div>` : ""}
-    ${d.vinylNotes ? `<div class="dsec"><h4>Note vinile</h4><div class="box">${esc(d.vinylNotes)}</div></div>` : ""}
     ${d.notes ? `<div class="dsec"><h4>Note</h4><div class="box">${esc(d.notes)}</div></div>` : ""}
     <div class="actions">
       <button class="btn ghost" id="dDel">Elimina</button>
@@ -1167,7 +1171,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.year || "";
-  $("fVinyl").value = d?.vinyl || ""; $("fVinylNotes").value = d?.vinylNotes || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
+  $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
   state.formBarcode = d?.barcode || null;
   $("fScan").hidden = !!d;
@@ -1217,7 +1221,8 @@ $("form").addEventListener("submit", async e => {
   if (prev && !(await askConfirm("Salvare le modifiche?", `Aggiorno «${album}».`, "Salva"))) return;
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, genres: state.fgenres.length ? [...state.fgenres] : null,
-    vinyl: $("fVinyl").value.trim() || null, vinylNotes: $("fVinylNotes").value.trim() || null,
+    vinyl: $("fVinyl").value.trim() || null,
+    lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
     discs: parseInt($("fDiscs").value, 10) > 0 ? parseInt($("fDiscs").value, 10) : null, limited: $("fLimited").value.trim() || null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
     barcode: state.formBarcode || prev?.barcode || null,
@@ -1316,8 +1321,8 @@ async function exportBackup(){
   };
 }
 async function exportCSV(){
-  const cols = ["Artista","Album","Anno","Genere","Colore vinile","Numero di dischi","Limited","Note vinile","Tracklist","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", d.vinylNotes || "", cleanTracks(d.tracks).split("\n").join(" / "), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const cols = ["Artista","Album","Anno","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Note","Stato"];
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
@@ -1330,6 +1335,7 @@ function parseBackup(text){
     id: String(d.id || "v" + Math.random().toString(36).slice(2,10)), artist: d.artist.trim(), album: d.album.trim(), year: parseInt(d.year, 10) || null,
     genres: Array.isArray(d.genres) ? d.genres.filter(g => typeof g === "string").slice(0, 20) : null,
     vinyl: typeof d.vinyl === "string" ? d.vinyl : null, vinylNotes: typeof d.vinylNotes === "string" ? d.vinylNotes : null,
+    lineup: typeof d.lineup === "string" ? d.lineup : null, producer: typeof d.producer === "string" ? d.producer : null,
     discs: parseInt(d.discs, 10) > 0 ? parseInt(d.discs, 10) : null, limited: typeof d.limited === "string" ? d.limited : null,
     tracks: typeof d.tracks === "string" ? (cleanTracks(d.tracks) || null) : null, notes: typeof d.notes === "string" ? d.notes : null,
     color: typeof d.color === "string" && /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : null,
