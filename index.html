@@ -366,8 +366,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <datalist id="artistList"></datalist>
     <label for="fAlbum">Titolo dell'album</label>
     <input class="field" id="fAlbum" autocomplete="off">
-    <label for="fYear">Anno di pubblicazione</label>
-    <input class="field" id="fYear" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Es. 1991">
+    <label for="fYear">Data di pubblicazione</label>
+    <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -456,7 +456,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.33";
+const APP_VERSION = "1.34";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1308,7 +1308,7 @@ async function openDetail(id){
       <div class="dinfo">
         <h3 style="margin-bottom:8px">${esc(d.album)}</h3>
         <button class="art" id="dArtist">${esc(d.artist)}</button>
-        <div class="yr">${d.year ? `Uscito nel ${d.year}` : "Anno non indicato"}</div>
+        <div class="yr">${d.releaseDate ? `Uscito il ${fmtDate(d.releaseDate)}` : d.year ? `Uscito nel ${d.year}` : "Data non indicata"}</div>
         ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
@@ -1447,7 +1447,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtistAc").hidden = true;
-  $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.year || "";
+  $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || "");
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
   state.formBarcode = d?.barcode || null; state.formDiscogs = null;
@@ -1513,15 +1513,30 @@ $("photoFile").addEventListener("change", async e => {
   catch(err){ $("fHint").textContent = "Non sono riuscita a usare questa immagine."; }
 });
 $("fCoverDel").onclick = () => { state.pending = { type: "remove" }; $("fHint").textContent = "La copertina verrà tolta quando premi Salva."; drawFormCover(); };
+function parseRelease(v){
+  v = String(v || "").trim(); if (!v) return { year: null, date: null };
+  const pad = n => String(n).padStart(2, "0"), ok = y => y >= 1900 && y <= 2100;
+  let m = v.match(/^(\d{4})$/); if (m) return ok(+m[1]) ? { year: +m[1], date: null } : null;
+  let d, mo, y;
+  if ((m = v.match(/^(\d{1,2})\s*[-\/.,\s]\s*(\d{1,2})\s*[-\/.,\s]\s*(\d{4})$/))) [d, mo, y] = [+m[1], +m[2], +m[3]];
+  else if ((m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
+  else return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (!ok(y) || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return { year: y, date: `${y}-${pad(mo)}-${pad(d)}` };
+}
+const fmtDate = iso => iso.split("-").reverse().join("-");
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
   const artist = $("fArtist").value.trim(), album = $("fAlbum").value.trim();
   if (!artist || !album){ $("fErr").textContent = "Artista e album sono obbligatori."; return; }
-  const year = parseInt($("fYear").value, 10) || null;
+  const rd = parseRelease($("fYear").value);
+  if (!rd){ $("fErr").textContent = "Data di pubblicazione non valida: scrivi per esempio 30-10-1978, oppure solo l'anno 1978."; $("fYear").focus(); return; }
+  const year = rd.year;
   const prev = state.editing ? state.discs.find(d => d.id === state.editing) : null;
   if (prev && !(await askConfirm("Salvare le modifiche?", `Aggiorno «${album}».`, "Salva"))) return;
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-  const data = { ...(prev || {}), id, artist, album, year, genres: state.fgenres.length ? [...state.fgenres] : null,
+  const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: $("fVinyl").value.trim() || null,
     lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
     discs: parseInt($("fDiscs").value, 10) > 0 ? parseInt($("fDiscs").value, 10) : null, limited: $("fLimited").value.trim() || null,
@@ -1624,8 +1639,8 @@ async function exportBackup(){
   };
 }
 async function exportCSV(){
-  const cols = ["Artista","Album","Anno","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Etichetta","N. catalogo","Valore (€)","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.discogsInfo?.label || "", d.discogsInfo?.catno || "", (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const cols = ["Artista","Album","Anno","Data di pubblicazione","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Etichetta","N. catalogo","Valore (€)","Note","Stato"];
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", d.releaseDate ? fmtDate(d.releaseDate) : "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.discogsInfo?.label || "", d.discogsInfo?.catno || "", (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
@@ -1636,6 +1651,7 @@ function parseBackup(text){
   if (!Array.isArray(list)) throw new Error("Il file non contiene una collezione di vinili.");
   const out = list.filter(d => d && typeof d.artist === "string" && typeof d.album === "string").map(d => ({
     id: String(d.id || "v" + Math.random().toString(36).slice(2,10)), artist: d.artist.trim(), album: d.album.trim(), year: parseInt(d.year, 10) || null,
+    ...(typeof d.releaseDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.releaseDate) ? { releaseDate: d.releaseDate } : {}),
     genres: Array.isArray(d.genres) ? d.genres.filter(g => typeof g === "string").slice(0, 20) : null,
     vinyl: typeof d.vinyl === "string" ? d.vinyl : null, vinylNotes: typeof d.vinylNotes === "string" ? d.vinylNotes : null,
     lineup: typeof d.lineup === "string" ? d.lineup : null, producer: typeof d.producer === "string" ? d.producer : null,
