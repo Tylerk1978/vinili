@@ -394,7 +394,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.22";
+const APP_VERSION = "1.23";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -500,7 +500,7 @@ $("goWish").onclick = () => showView("wishlist");
 $("goInc").onclick = () => showView("inarrivo");
 $("backBtn").onclick = () => {
   if (state.view === "artista" && state.artistReturn) return goBackFromArtist();
-  if (state.view === "statistiche" && state.statsSub){ state.statsSub = null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  if (state.view === "statistiche" && state.statsSub) return statsUp();
   showView("home");
 };
 $("goStats").onclick = () => { state.statsSub = null; state.statsOpen = null; showView("statistiche"); };
@@ -867,22 +867,34 @@ function groups(kind){
     let keys;
     if (kind === "genere") keys = (d.genres && d.genres.length) ? d.genres : ["Senza genere"];
     else if (kind === "artista") keys = [d.artist];
+    else if (kind === "anno") keys = [d.year ? String(d.year) : "Anno sconosciuto"];
     else if (kind === "decennio") keys = [d.year ? `Anni ${String(Math.floor(d.year / 10) * 10)}` : "Anno sconosciuto"];
     else keys = [d.vinyl ? d.vinyl.trim().replace(/^./, c => c.toUpperCase()) : "Non indicato"];
     for (const k of keys){ const kk = kind === "artista" ? akey(k) : k; if (!m.has(kk)) m.set(kk, { label: k, items: [] }); m.get(kk).items.push(d); }
   }
   const arr = [...m.entries()].map(([key, v]) => ({ key, label: v.label, items: v.items.sort(discSort) }));
+  if (kind === "anno") return arr.sort((a,b) => (a.label === "Anno sconosciuto") - (b.label === "Anno sconosciuto") || Number(a.label) - Number(b.label));
   if (kind === "decennio") return arr.sort((a,b) => a.label.localeCompare(b.label));
   if (kind === "artista" && getMeta().artistSort === "alfa") return arr.sort((a,b) => sortName(a.label).localeCompare(sortName(b.label), "it"));
   return arr.sort((a,b) => (/^(Senza|Non indicato)/.test(a.label) - /^(Senza|Non indicato)/.test(b.label)) || (b.items.length - a.items.length) || a.label.localeCompare(b.label, "it"));
 }
-const SUBS = { genere: "Per genere", artista: "Per artista", decennio: "Per decennio", colore: "Per colore del vinile" };
+const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita" };
+const DATE_SUBS = { anno: "Per anno", decennio: "Per decennio" };
+const STAT_TITLES = { ...SUBS, ...DATE_SUBS };
+function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
+const subcardHTML = (k, l, n) => `<button class="subcard" data-sub="${k}"><span class="t">${l}</span><span class="s">${n}</span><span class="chev" style="font-size:22px">›</span></button>`;
 function renderStats(){
   const coll = collection();
   const sub = state.statsSub;
+  if (sub === "data"){
+    $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">${SUBS.data}</h2>
+      <p class="note">Scegli come raggruppare i dischi per data di uscita.</p>
+      ${Object.entries(DATE_SUBS).map(([k, l]) => subcardHTML(k, l, groups(k).length)).join("")}</div>`;
+    return;
+  }
   if (sub){
     const gs = groups(sub), max = Math.max(1, ...gs.map(g => g.items.length));
-    $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">${SUBS[sub]}</h2>
+    $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ ${DATE_SUBS[sub] ? SUBS.data : "Statistiche"}</button><h2 style="margin-top:8px">${STAT_TITLES[sub]}</h2>
       ${sub === "artista" ? (() => { const al = getMeta().artistSort === "alfa"; return `<div class="sortseg"><button data-sort="num" class="${al ? "" : "on"}">Per numero di dischi</button><button data-sort="alfa" class="${al ? "on" : ""}">Alfabetico</button></div>`; })() : ""}
       <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
       ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
@@ -894,11 +906,11 @@ function renderStats(){
     <div class="stat-hero"><div class="num">${coll.length}</div><div class="lbl">dischi in collezione</div></div>
     <div class="stat-mini"><div><b>${nA}</b>artisti</div><div><b>${allGenres().length}</b>generi</div><div><b>${listOf("wish").length}</b>in wishlist</div><div><b>${listOf("incoming").length}</b>in arrivo</div></div>
     <h2>Approfondisci</h2>
-    ${Object.entries(SUBS).map(([k, l]) => `<button class="subcard" data-sub="${k}"><span class="t">${l}</span><span class="s">${groups(k).length}</span><span class="chev" style="font-size:22px">›</span></button>`).join("")}
+    ${Object.entries(SUBS).map(([k, l]) => subcardHTML(k, l, k === "data" ? "" : groups(k).length)).join("")}
   </div>`;
 }
 $("viewStats").addEventListener("click", e => {
-  if (e.target.closest("#sBack")){ state.statsSub = null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
+  if (e.target.closest("#sBack")) return statsUp();
   const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
   const so = e.target.closest(".sortseg button"); if (so){ setMeta("artistSort", so.dataset.sort === "alfa" ? "alfa" : null); renderStats(); return; }
   const it = e.target.closest(".grp-item"); if (it) return openDetail(it.dataset.id);
