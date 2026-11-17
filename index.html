@@ -463,7 +463,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.29";
+const APP_VERSION = "1.31";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1030,7 +1030,7 @@ async function dgSearch(){
   try {
     let j = await dgGet(usePair ? `/database/search?type=release&format=Vinyl&per_page=50&artist=${encodeURIComponent(d.artist)}&release_title=${encodeURIComponent(d.album)}` : `/database/search?type=release&format=Vinyl&per_page=50&q=${encodeURIComponent(q)}`);
     if (usePair && !(j.results || []).length) j = await dgGet(`/database/search?type=release&format=Vinyl&per_page=50&q=${encodeURIComponent(q)}`);
-    const res = (j.results || []).sort((a, b) => (parseInt(a.year, 10) || 9999) - (parseInt(b.year, 10) || 9999));
+    const res = (j.results || []).filter(r => (r.format || []).some(f => /vinyl/i.test(f))).sort((a, b) => (parseInt(a.year, 10) || 9999) - (parseInt(b.year, 10) || 9999));
     state.dgRes = res;
     $("dgList").innerHTML = res.length ? `<p class="hint">${res.length} stampe trovate, dalla più vecchia. Tocca quella che hai.</p>` + res.map((r, i) => { const inf = dgInfoFromSearch(r); return `<button type="button" class="dgres" data-i="${i}">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : `<span class="noimg"></span>`}<span><b>${esc(r.title)}</b><span>${[inf.year, inf.country, inf.label, inf.catno && inf.catno !== "none" ? "Cat. " + inf.catno : null].filter(Boolean).map(esc).join(" · ")}</span><span>${esc(inf.format || "")}</span></span></button>`; }).join("")
       : `<p class="hint">Nessuna stampa trovata: prova a cambiare le parole cercate, oppure incolla il link qui sotto.</p>`;
@@ -1053,7 +1053,9 @@ $("dgUrlGo").onclick = async () => {
   if (/\/master\//i.test(v)){ $("dgLinkErr").textContent = "Questo è il link della pagina generale dell'album: apri la stampa precisa (indirizzo con /release/) e incolla quello."; return; }
   const mm = v.match(/release\/(\d+)/i) || v.match(/^\[?r?(\d+)\]?$/i);
   if (!mm){ $("dgLinkErr").textContent = "Non riconosco il link: deve contenere /release/ seguito da un numero."; return; }
-  try { const rel = await dgGet(`/releases/${mm[1]}`); linkDisc(mm[1], dgInfoFromRelease(rel)); }
+  try { const rel = await dgGet(`/releases/${mm[1]}`);
+    if (!(rel.formats || []).some(f => /vinyl/i.test(f.name))){ $("dgLinkErr").textContent = `Questa stampa è ${(rel.formats || []).map(f => f.name).join(", ") || "un altro formato"}, non un vinile: apri la pagina della versione in vinile.`; return; }
+    linkDisc(mm[1], dgInfoFromRelease(rel)); }
   catch(e){ $("dgLinkErr").textContent = e.status === 404 ? "Su Discogs non esiste una stampa con questo numero." : "Non riesco a contattare Discogs. Sei connesso?"; }
 };
 /* Aggiornamento di tutti i prezzi (dalle statistiche) */
@@ -1230,7 +1232,8 @@ async function lookupBarcode(code){
           const [a, ...rest] = String(hit.title || "").split(" - ");
           const artist = rel?.artists?.map(x => x.name.replace(/\s\(\d+\)$/, "")).join(", ") || a;
           const vinylFmt = (rel?.formats || []).find(f => /vinyl/i.test(f.name));
-          return { source: "Discogs", discogsId: String(hit.id), discogsInfo: rel ? dgInfoFromRelease(rel) : dgInfoFromSearch(hit), artist, album: rel?.title || rest.join(" - "), year: rel?.year || parseInt(hit.year, 10) || null,
+          const isVinyl = rel ? (rel.formats || []).some(f => /vinyl/i.test(f.name)) : (hit.format || []).some(f => /vinyl/i.test(f));
+          return { source: "Discogs", ...(isVinyl ? { discogsId: String(hit.id), discogsInfo: rel ? dgInfoFromRelease(rel) : dgInfoFromSearch(hit) } : {}), artist, album: rel?.title || rest.join(" - "), year: rel?.year || parseInt(hit.year, 10) || null,
             genres: [...new Set([...(rel?.genres || hit.genre || []), ...(rel?.styles || hit.style || [])])].slice(0, 4),
             vinyl: vinylFmt?.text || null, discs: parseInt(vinylFmt?.qty, 10) || null,
             producer: [...new Set((rel?.extraartists || []).filter(x => /^producer\b/i.test(x.role || "")).map(x => x.name.replace(/\s\(\d+\)$/, "")))].join(", ") || null,
@@ -1658,10 +1661,9 @@ function parseBackup(text){
     coverData: typeof d.coverData === "string" && /^data:image\//.test(d.coverData) ? d.coverData : null,
     ...(d.list === "wish" || d.list === "incoming" ? { list: d.list } : {}),
     ...(Number(d.rating) > 0 ? { rating: Math.round(Number(d.rating) * 2) / 2 } : {}),
-    ...(d.discogsId ? { discogsId: String(d.discogsId) } : {}),
-    ...(d.discogsInfo && typeof d.discogsInfo === "object" ? { discogsInfo: d.discogsInfo } : {}),
-    ...(d.market && typeof d.market === "object" && typeof d.market.at === "string" ? { market: d.market } : {}),
-    ...(typeof d.condition === "string" ? { condition: d.condition } : {}),
+    ...(d.discogsId && d.discogsInfo && typeof d.discogsInfo === "object" ? { discogsId: String(d.discogsId), discogsInfo: d.discogsInfo,
+      ...(d.market && typeof d.market === "object" && typeof d.market.at === "string" ? { market: d.market } : {}),
+      ...(typeof d.condition === "string" ? { condition: d.condition } : {}) } : {}),
     ...(typeof d.valueManual === "number" && d.valueManual >= 0 ? { valueManual: d.valueManual } : {}),
     ...(d.barcode ? { barcode: String(d.barcode) } : {}),
     createdAt: typeof d.createdAt === "string" ? d.createdAt : new Date().toISOString() }));
@@ -1790,6 +1792,10 @@ document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (!$("cfO
 /* ---------- Avvio ---------- */
 $("credits").innerHTML = `<b>I miei vinili</b><br>Versione ${APP_VERSION} · by Massimo Merigo`;
 state.discs = load();
+// Collegamenti Discogs arrivati dall'import (spesso puntavano a CD): si tolgono, restano solo quelli scelti nell'app.
+// Versione 1.31: azzeramento completo, una volta sola, di tutti i collegamenti Discogs (si ricreano a mano).
+if (!getMeta().dgWipe131){ state.discs = state.discs.map(d => { const { discogsId, discogsInfo, market, condition, ...rest } = d; return rest; }); try { localStorage.setItem(KEY, JSON.stringify(state.discs)); setMeta("dgWipe131", new Date().toISOString()); } catch(e){} }
+{ let ch = false; state.discs = state.discs.map(d => { if (!d.discogsId || d.discogsInfo) return d; ch = true; const { discogsId, market, condition, ...rest } = d; return rest; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
 { let ch = false; state.discs = state.discs.map(d => { if (!d.tracks) return d; const c = cleanTracks(d.tracks) || null; if (c !== d.tracks){ ch = true; return { ...d, tracks: c }; } return d; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
 state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
