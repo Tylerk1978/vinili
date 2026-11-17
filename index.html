@@ -284,6 +284,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .miss-row span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .flash{animation:flash 1.8s ease-out}
 @keyframes flash{0%,35%{box-shadow:0 0 0 3px var(--accent),0 0 18px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.crit{margin:10px 0 0;padding-left:20px;font-size:14px;line-height:1.5}
+.crit li{margin-bottom:10px}
+.crit b{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -472,7 +475,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.41";
+const APP_VERSION = "1.42";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1075,6 +1078,21 @@ async function bulkRefresh(){
   }
   state.bulk.running = false; if (state.view === "statistiche") renderStats();
 }
+function openCriteria(){
+  $("menu").innerHTML = `
+    <h3>Criteri</h3>
+    <ul class="crit">
+      <li><b>Mint (M)</b>: perfetto, come nuovo e mai suonato, di solito ancora sigillato. Su Discogs si usa poco, proprio perché è raro.</li>
+      <li><b>Near Mint (NM o M-)</b>: quasi perfetto. Suonato poche volte, nessun segno visibile, suono pulito. È la condizione di un disco comprato nuovo e tenuto con cura.</li>
+      <li><b>Very Good Plus (VG+)</b>: piccoli segni d'uso, come qualche leggero graffietto o la superficie un po' opaca, ma suona benissimo. È il grado più comune per un usato ben tenuto.</li>
+      <li><b>Very Good (VG)</b>: segni d'uso evidenti. Si sentono fruscii e qualche clic soprattutto nei passaggi piano, ma la musica non ne è coperta.</li>
+      <li><b>Good Plus (G+) e Good (G)</b>: molto rovinato. Fruscio costante e clic, ma si ascolta ancora dall'inizio alla fine senza salti.</li>
+      <li><b>Fair e Poor</b>: salta o è rovinato; non vale quasi niente.</li>
+    </ul>
+    <div class="actions"><button class="btn" id="critClose">Chiudi</button></div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("critClose").onclick = () => { $("menuOv").hidden = true; };
+}
 function valueTotals(){
   const coll = collection(); let tot = 0, n = 0, other = 0;
   for (const d of coll){ const v = discValue(d); if (!v) continue; if (v.cur === "EUR"){ tot += v.v; n++; } else other++; }
@@ -1113,7 +1131,7 @@ function renderStats(){
     $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">Valore della collezione</h2>
       <div class="stat-hero"><div class="num" style="font-size:52px">${money(t.tot)}</div><div class="lbl">${t.n === 1 ? "1 disco" : t.n + " dischi"} con un valore su ${t.all}</div></div>
       <p class="note">${t.linked === 1 ? "1 disco collegato" : t.linked + " dischi collegati"} a Discogs. ${t.all - t.linked ? `${t.all - t.linked === 1 ? "L'altro si collega" : `Gli altri ${t.all - t.linked} si collegano`} dalla scheda del disco, nel riquadro «Valore di mercato».` : ""}${t.other ? ` ${t.other} prezzi sono in un'altra valuta e non entrano nel totale.` : ""}</p>
-      <div class="vbtns" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px"><button class="btn small" id="sBulk">${b && b.running ? `Interrompi (${b.done}/${b.total})` : "Aggiorna tutti i prezzi"}</button></div>
+      <div class="vbtns" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px"><button class="btn small" id="sBulk">${b && b.running ? `Interrompi (${b.done}/${b.total})` : "Aggiorna tutti i prezzi"}</button><button class="btn ghost small" id="sCrit">Criteri</button></div>
       ${b && b.running ? `<p class="hint">Aggiorno un disco ogni due secondi circa, per non superare i limiti di Discogs. Puoi usare l'app nel frattempo, ma tienila aperta.</p>` : ""}
       <div class="vlist">${rows.map(x => `<button class="grp-item" data-id="${esc(x.d.id)}"><span><b>${esc(x.d.album)}</b><span>${esc(x.d.artist)}${x.v.src === "manual" ? " · a mano" : ""}</span></span><span class="vv">${money(x.v.v, x.v.cur)}</span></button>`).join("")}</div></div>`;
     return;
@@ -1145,6 +1163,7 @@ function renderStats(){
 $("viewStats").addEventListener("click", e => {
   if (e.target.closest("#sBack")) return statsUp();
   if (e.target.closest("#sBulk")) return bulkRefresh();
+  if (e.target.closest("#sCrit")) return openCriteria();
   const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
   const so = e.target.closest(".sortseg button"); if (so){ setMeta("artistSort", so.dataset.sort === "alfa" ? "alfa" : null); renderStats(); return; }
   const it = e.target.closest(".grp-item"); if (it) return openDetail(it.dataset.id);
