@@ -462,7 +462,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.36";
+const APP_VERSION = "1.37";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1127,7 +1127,7 @@ function renderStats(){
   $("viewStats").innerHTML = `<div class="apage">
     <div class="stat-hero"><div class="num">${coll.length}</div><div class="lbl">dischi in collezione</div></div>
     <div class="stat-mini"><div><b>${nA}</b>artisti</div><div><b>${allGenres().length}</b>generi</div><div><b>${listOf("wish").length}</b>in wishlist</div><div><b>${listOf("incoming").length}</b>in arrivo</div></div>
-    ${(() => { const t = valueTotals(); return `<button class="subcard" data-sub="valore"><span class="t">Valore della collezione</span><span class="s">${t.n ? money(t.tot) : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; })()}
+    ${(() => { const t = valueTotals(); return `<button class="subcard" data-sub="valore" style="margin-top:18px"><span class="t">Valore della collezione</span><span class="s">${t.n ? money(t.tot) : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; })()}
     <h2>Approfondisci</h2>
     ${Object.entries(SUBS).map(([k, l]) => subcardHTML(k, l, k === "data" ? "" : groups(k).length)).join("")}
   </div>`;
