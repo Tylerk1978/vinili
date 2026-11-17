@@ -57,6 +57,13 @@ textarea.field{resize:vertical;line-height:1.5}
 .card-art .disc{position:absolute;right:-14px;bottom:-12px;width:74px;height:74px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
 @media (max-width:420px){ .card{gap:12px;padding:16px 14px} .card-art{width:96px;height:84px} .chev{font-size:26px} }
 .credits{text-align:center;color:#8e7c62;font-size:12px;line-height:1.6;margin-top:auto;padding-top:24px}
+/* Pagina iniziale ferma, a tutto schermo, con i crediti in fondo */
+html.homeview,html.homeview body{height:100%;overflow:hidden;overscroll-behavior:none}
+html.homeview body{position:fixed;inset:0;width:100%;display:flex;flex-direction:column;min-height:0}
+html.homeview header{flex:0 0 auto;width:100%;box-sizing:border-box}
+html.homeview .home{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+html.homeview .credits{padding-top:12px}
+@media (max-height:760px){ html.homeview .home{gap:10px;padding-top:10px} html.homeview .card{padding:12px 14px} html.homeview .card-art{height:72px} html.homeview .card-art .disc{width:60px;height:60px} }
 .credits b{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;font-weight:600;color:var(--muted)}
 .banner{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;background:#3a2a17;border:1px solid #8a6a3a;border-radius:16px;padding:14px 16px}
 .banner b{display:block;font-size:15px}
@@ -224,6 +231,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .citem .cimg .ph{font-family:"Cormorant Garamond",Georgia,serif;font-size:13px;font-weight:700;text-align:center;padding:8px;color:var(--t);background:var(--c);width:100%;height:100%;display:flex;align-items:center;justify-content:center;line-height:1.15}
 .citem b{display:block;font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .citem span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-art.pie{padding:0;border-bottom:0;align-items:center;justify-content:center}
 .card-art.bars{gap:6px;padding:10px 12px 0;align-items:flex-end;border-bottom:0}
 .card-art.bars i{flex:1;background:var(--accent);border-radius:4px 4px 0 0;opacity:.9;min-height:4px}
 .backlink{background:none;border:0;color:var(--accent);font:600 15px Inter,sans-serif;cursor:pointer;padding:6px 0;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
@@ -297,18 +305,18 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div class="card-body"><div class="card-title">Collezione</div><div class="card-sub" id="homeCollSub"></div></div>
     <span class="chev">›</span>
   </button>
-  <button class="card" id="goWish">
-    <div class="card-art" id="homeWish"></div>
-    <div class="card-body"><div class="card-title">Wishlist</div><div class="card-sub" id="homeWishSub"></div></div>
-    <span class="chev">›</span>
-  </button>
   <button class="card" id="goInc">
     <div class="card-art" id="homeInc"></div>
     <div class="card-body"><div class="card-title">In arrivo</div><div class="card-sub" id="homeIncSub"></div></div>
     <span class="chev">›</span>
   </button>
+  <button class="card" id="goWish">
+    <div class="card-art" id="homeWish"></div>
+    <div class="card-body"><div class="card-title">Wishlist</div><div class="card-sub" id="homeWishSub"></div></div>
+    <span class="chev">›</span>
+  </button>
   <button class="card" id="goStats">
-    <div class="card-art bars" id="homeBars"></div>
+    <div class="card-art pie" id="homeBars"><svg viewBox="0 0 96 84" width="100%" height="100%" aria-hidden="true"><circle cx="48" cy="42" r="34" fill="#0b0b0b"/><path d="M48 42 L48 8 A34 34 0 0 1 80.3 52.5 Z" fill="#d9a65a"/><path d="M48 42 L80.3 52.5 A34 34 0 0 1 30 70.8 Z" fill="#9e5a2e"/><path d="M48 42 L30 70.8 A34 34 0 0 1 16 30 Z" fill="#6b7f5a"/><circle cx="48" cy="42" r="34" fill="none" stroke="#100c09" stroke-width="1"/><circle cx="48" cy="42" r="26" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1"/><circle cx="48" cy="42" r="18" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1"/><circle cx="48" cy="42" r="9" fill="#16120f"/><circle cx="48" cy="42" r="2" fill="#d9a65a"/></svg></div>
     <div class="card-body"><div class="card-title">Statistiche</div><div class="card-sub" id="homeStatsSub"></div></div>
     <span class="chev">›</span>
   </button>
@@ -464,7 +472,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.38";
+const APP_VERSION = "1.40";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -560,6 +568,7 @@ function showView(v, push = true){
   if (v === "artista" && !state.artist) v = "home";
   if (state.view !== v){ state.lq = ""; $("lq").value = ""; }
   state.view = v;
+  document.documentElement.classList.toggle("homeview", v === "home");
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
   $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche";
   $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden;
@@ -598,7 +607,6 @@ function renderHome(){
   $("homeBanner").innerHTML = bannerHTML();
   const dec = decadeCounts().slice(-6);
   const mx = Math.max(1, ...dec.map(x => x[1]));
-  $("homeBars").innerHTML = dec.map(([k,c]) => `<i style="height:${Math.max(6, Math.round(c / mx * 80))}px" title="${k}"></i>`).join("");
   const nA = new Set(coll.map(d => norm(d.artist))).size;
   $("homeStatsSub").textContent = coll.length ? `${nA} artisti · ${allGenres().length} generi` : "Generi, artisti e decenni";
 }
