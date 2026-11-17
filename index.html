@@ -130,6 +130,15 @@ textarea.field{resize:vertical;line-height:1.5}
 .swatches button.on{border-color:var(--ink)}
 .swatches .auto{width:auto;padding:0 10px;background:var(--field);color:var(--muted);font-size:12px;border:1px solid var(--line)}
 .swatches .auto.on{border:2px solid var(--ink);color:var(--ink)}
+.gsel{display:flex;flex-wrap:wrap;gap:6px;min-height:4px}
+.gsel span{display:inline-flex;align-items:center;gap:4px;background:#5a3f1f;border:1px solid var(--accent);color:var(--ink);border-radius:999px;padding:5px 6px 5px 12px;font-size:13px}
+.gsel span button{appearance:none;background:none;border:0;color:var(--muted);font-size:17px;line-height:1;padding:0 4px;cursor:pointer}
+select.field{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+.glist{margin-top:14px;border-top:1px solid var(--line)}
+.grow2{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+.grow2 .gn{flex:1;min-width:0;font-size:15px}
+.grow2 .gn small{color:var(--muted);font-size:12px;margin-left:6px}
+.grow2 .field{flex:1;min-width:0;padding:8px 10px}
 .tagpick{display:flex;flex-wrap:wrap;gap:6px}
 .tagpick button{background:var(--field);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
 .tagpick button.on{background:#5a3f1f;border-color:var(--accent);color:var(--ink)}
@@ -335,10 +344,10 @@ textarea.field{resize:vertical;line-height:1.5}
     <label for="fYear">Anno</label>
     <input class="field" id="fYear" type="number" inputmode="numeric" min="1900" max="2100" placeholder="Es. 1991">
     <label>Genere</label>
-    <div class="tagpick" id="fGenres"></div>
+    <div class="gsel" id="fGenres"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input class="field" id="fGenreNew" placeholder="Nuovo genere, es. grunge" autocomplete="off" style="flex:1">
-      <button type="button" class="btn ghost small" id="fGenreAdd">Aggiungi</button>
+      <select class="field" id="fGenreSel" style="flex:1"></select>
+      <button type="button" class="btn ghost small" id="fGenreMgr">Aggiungi</button>
     </div>
     <label for="fVinyl">Colore vinile</label>
     <input class="field" id="fVinyl" list="vinylList" placeholder="Es. nero, rosso trasparente, splatter…" autocomplete="off">
@@ -369,6 +378,19 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <div class="overlay" id="detOv" hidden><div class="sheet" id="det"></div></div>
 <div class="overlay" id="menuOv" hidden><div class="sheet menu" id="menu"></div></div>
+<div class="overlay" id="genOv" hidden style="z-index:30">
+  <div class="sheet" style="max-width:440px">
+    <h3>Generi</h3>
+    <p style="margin:0">Aggiungi un genere nuovo, oppure modifica o elimina quelli che hai già. Le modifiche valgono per tutti i dischi.</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input class="field" id="gNew" placeholder="Nuovo genere, es. grunge" autocomplete="off" style="flex:1">
+      <button type="button" class="btn small" id="gAdd">Aggiungi</button>
+    </div>
+    <div class="err" id="gErr"></div>
+    <div class="glist" id="gList"></div>
+    <div class="actions"><button type="button" class="btn" id="gDone">Fatto</button></div>
+  </div>
+</div>
 <div class="overlay" id="cfOv" hidden style="z-index:40">
   <div class="sheet" style="max-width:380px">
     <h3 id="cfTitle" style="font-size:24px"></h3>
@@ -396,7 +418,7 @@ textarea.field{resize:vertical;line-height:1.5}
 
 <script>
 (() => {
-const APP_VERSION = "1.24";
+const APP_VERSION = "1.25";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -417,7 +439,9 @@ const listOf = k => state.discs.filter(d => d.list === k).sort((a,b) => String(a
 function sortName(a){ return norm(String(a || "").trim()); }
 function letterOf(d){ const c = sortName(d.artist).charAt(0).toUpperCase(); return /[A-Z]/.test(c) ? c : "#"; }
 function discSort(a, b){ return sortName(a.artist).localeCompare(sortName(b.artist), "it") || (Number(a.year)||9999) - (Number(b.year)||9999) || norm(a.album).localeCompare(norm(b.album), "it"); }
-function allGenres(){ const s = new Set(); for (const d of state.discs) for (const g of d.genres || []) s.add(g); return [...s].sort((a,b) => a.localeCompare(b, "it")); }
+function extraGenres(){ const x = getMeta().genresExtra; return Array.isArray(x) ? x.filter(g => typeof g === "string" && g) : []; }
+function allGenres(){ const s = new Set(extraGenres()); for (const d of state.discs) for (const g of d.genres || []) s.add(g); return [...s].sort((a,b) => a.localeCompare(b, "it")); }
+function genreCount(g){ return state.discs.filter(d => (d.genres || []).includes(g)).length; }
 
 /* ---------- Copertine (IndexedDB) ---------- */
 const idb = (() => {
@@ -1149,13 +1173,69 @@ async function moveTo(id, to){
 
 /* ---------- Modulo ---------- */
 function drawGenres(){
-  const all = [...new Set([...allGenres(), ...state.fgenres])].sort((a,b) => a.localeCompare(b, "it"));
-  $("fGenres").innerHTML = all.length ? all.map(g => `<button type="button" data-g="${esc(g)}" class="${state.fgenres.includes(g) ? "on" : ""}">${esc(g)}</button>`).join("") : `<span class="hint" style="margin:0">Nessun genere ancora: scrivine uno qui sotto.</span>`;
+  $("fGenres").innerHTML = state.fgenres.map(g => `<span>${esc(g)}<button type="button" data-g="${esc(g)}" aria-label="Togli ${esc(g)}">×</button></span>`).join("");
+  const rest = allGenres().filter(g => !state.fgenres.includes(g));
+  $("fGenreSel").innerHTML = `<option value="">${allGenres().length ? (rest.length ? "Scegli un genere…" : "Hai già scelto tutti i generi") : "Nessun genere: tocca Aggiungi"}</option>` + rest.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join("");
 }
-$("fGenres").onclick = e => { const b = e.target.closest("button[data-g]"); if (!b) return; const g = b.dataset.g; state.fgenres = state.fgenres.includes(g) ? state.fgenres.filter(x => x !== g) : [...state.fgenres, g]; drawGenres(); };
-function addGenre(){ const g = $("fGenreNew").value.replace(/\s+/g, " ").trim().slice(0, 30); if (!g) return; const ex = allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g; if (!state.fgenres.includes(ex)) state.fgenres.push(ex); $("fGenreNew").value = ""; drawGenres(); }
-$("fGenreAdd").onclick = addGenre;
-$("fGenreNew").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); addGenre(); } });
+$("fGenres").onclick = e => { const b = e.target.closest("button[data-g]"); if (!b) return; state.fgenres = state.fgenres.filter(x => x !== b.dataset.g); drawGenres(); };
+$("fGenreSel").onchange = () => { const g = $("fGenreSel").value; if (g && !state.fgenres.includes(g)) state.fgenres.push(g); drawGenres(); };
+/* Gestione generi: aggiungi, rinomina, elimina */
+let genEdit = null;
+function drawGenreMgr(){
+  const all = allGenres();
+  $("gList").innerHTML = all.length ? all.map(g => {
+    const n = genreCount(g);
+    if (genEdit === g) return `<div class="grow2"><input class="field" id="gRen" value="${esc(g)}" maxlength="30" autocomplete="off"><button type="button" class="btn small" data-act="save" data-g="${esc(g)}">Salva</button><button type="button" class="btn ghost small" data-act="cancel">Annulla</button></div>`;
+    return `<div class="grow2"><span class="gn">${esc(g)}<small>${n === 1 ? "1 disco" : n + " dischi"}</small></span><button type="button" class="btn ghost small" data-act="edit" data-g="${esc(g)}">Modifica</button><button type="button" class="btn ghost small" data-act="del" data-g="${esc(g)}">Elimina</button></div>`;
+  }).join("") : `<p class="hint">Nessun genere ancora.</p>`;
+  if (genEdit){ const f = $("gRen"); if (f){ f.focus(); f.select(); } }
+}
+function cleanGenre(v){ return String(v || "").replace(/\s+/g, " ").trim().slice(0, 30); }
+function setExtra(list){ setMeta("genresExtra", [...new Set(list)].sort((a,b) => a.localeCompare(b, "it"))); }
+function openGenreMgr(){ genEdit = null; $("gNew").value = ""; $("gErr").textContent = ""; drawGenreMgr(); $("genOv").hidden = false; }
+function closeGenreMgr(){ $("genOv").hidden = true; genEdit = null; drawGenres(); }
+$("fGenreMgr").onclick = openGenreMgr;
+$("gDone").onclick = closeGenreMgr;
+$("genOv").onclick = e => { if (e.target === $("genOv")) closeGenreMgr(); };
+function addGenre(){
+  const g = cleanGenre($("gNew").value); $("gErr").textContent = ""; if (!g) return;
+  const ex = allGenres().find(x => x.toLowerCase() === g.toLowerCase());
+  if (ex){ $("gErr").textContent = `«${ex}» c'è già.`; return; }
+  setExtra([...extraGenres(), g]);
+  if (!state.fgenres.includes(g)) state.fgenres.push(g);
+  $("gNew").value = ""; drawGenreMgr(); drawGenres();
+}
+$("gAdd").onclick = addGenre;
+$("gNew").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); addGenre(); } });
+function replaceGenre(oldG, newG){
+  const fix = arr => { const out = []; for (const g of arr) { const v = g === oldG ? newG : g; if (v && !out.includes(v)) out.push(v); } return out; };
+  let ch = false;
+  state.discs = state.discs.map(d => { if (!(d.genres || []).includes(oldG)) return d; ch = true; const gs = fix(d.genres); return { ...d, genres: gs.length ? gs : null }; });
+  if (ch) persist();
+  setExtra(fix(extraGenres()));
+  state.fgenres = fix(state.fgenres);
+  if (state.genre === oldG) state.genre = newG || "";
+}
+$("gList").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const act = b.dataset.act, g = b.dataset.g; $("gErr").textContent = "";
+  if (act === "edit"){ genEdit = g; return drawGenreMgr(); }
+  if (act === "cancel"){ genEdit = null; return drawGenreMgr(); }
+  if (act === "save"){
+    const nv = cleanGenre($("gRen").value); if (!nv){ $("gErr").textContent = "Scrivi un nome."; return; }
+    if (nv === g){ genEdit = null; return drawGenreMgr(); }
+    const ex = allGenres().find(x => x !== g && x.toLowerCase() === nv.toLowerCase());
+    if (ex && !(await askConfirm("Unire i generi?", `«${ex}» esiste già: i dischi di «${g}» passeranno sotto «${ex}».`, "Unisci"))) return;
+    try { replaceGenre(g, ex || nv); } catch(err){ $("gErr").textContent = "Non riesco a salvare: memoria piena."; return; }
+    genEdit = null; drawGenreMgr(); drawGenres(); render(); return;
+  }
+  if (act === "del"){
+    const n = genreCount(g);
+    if (!(await askConfirm(`Eliminare «${g}»?`, n ? `Il genere verrà tolto da ${n === 1 ? "1 disco" : n + " dischi"}. I dischi restano in collezione.` : "Non è usato da nessun disco.", "Elimina", true))) return;
+    try { replaceGenre(g, null); } catch(err){ $("gErr").textContent = "Non riesco a salvare: memoria piena."; return; }
+    drawGenreMgr(); drawGenres(); render();
+  }
+});
 function drawSwatches(){ $("fSw").innerHTML = `<button type="button" class="auto ${!state.color ? "on" : ""}" data-c="">Auto</button>` + PALETTE.map(c => `<button type="button" data-c="${c}" class="${state.color === c ? "on" : ""}" style="background:${c}"></button>`).join(""); }
 $("fSw").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.color = b.dataset.c; drawSwatches(); drawFormCover(); };
 async function drawFormCover(){
@@ -1282,7 +1362,7 @@ async function prepareBackup(progress){
     if (++n % 20 === 0) progress(`Preparo il backup… ${Math.round(n / total * 100)}%`);
   }
   if (photoParts.length) parts.push(new Blob(photoParts));
-  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {} });
+  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {}, genresExtra: extraGenres() });
   parts.unshift(head.slice(0, -1) + ',"artistPhotos":{');
   parts.push('},"discs":['); first = true;
   for (const d of state.discs){
@@ -1350,6 +1430,7 @@ function parseBackup(text){
   if (data && data.artistInfo && typeof data.artistInfo === "object") out.artistInfo = data.artistInfo;
   if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
   for (const f of ["artistPhotoUrls", "artistAuto", "artistManual"]) if (data && data[f] && typeof data[f] === "object") out[f] = data[f];
+  if (data && Array.isArray(data.genresExtra)) out.genresExtra = data.genresExtra.filter(g => typeof g === "string" && g.trim()).map(g => g.trim().slice(0, 30));
   return out;
 }
 async function applyImport(discs){
@@ -1359,6 +1440,7 @@ async function applyImport(discs){
   Object.keys(coverURLs).forEach(dropCover);
   const ai = discs.artistInfo, ap = discs.artistPhotos; delete discs.artistInfo; delete discs.artistPhotos;
   const apu = discs.artistPhotoUrls, aau = discs.artistAuto, aman = discs.artistManual; delete discs.artistPhotoUrls; delete discs.artistAuto; delete discs.artistManual;
+  const gex = discs.genresExtra; delete discs.genresExtra; if (gex) setExtra([...extraGenres(), ...gex]);
   if (apu){ const cur = { ...artistUrlMap() }; for (const [k, v] of Object.entries(apu)) if (typeof v === "string" && /^https:\/\//.test(v) && !cur[k] && !(await (async () => { try { return !!(await idb.get("artist:" + k)); } catch(e){ return false; } })())) cur[k] = v; setMeta("artistPhotoUrls", cur); }
   if (aau) setMeta("artistAuto", { ...aau, ...artistAutoMap() });
   if (aman) setMeta("artistManual", { ...aman, ...(getMeta().artistManual || {}) });
