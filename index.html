@@ -274,6 +274,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .miss-row{display:block;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:6px;color:var(--ink);cursor:pointer;font:inherit}
 .miss-row b{display:block;font-size:14px;font-weight:600}
 .miss-row span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.flash{animation:flash 1.8s ease-out}
+@keyframes flash{0%,35%{box-shadow:0 0 0 3px var(--accent),0 0 18px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 </style>
 </head>
 <body>
@@ -462,7 +464,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.37";
+const APP_VERSION = "1.38";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1451,7 +1453,18 @@ async function drawFormCover(){
   $("fCoverPrev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : `<div style="--row:110px;--s:1">${spineSpan({ id: "x", artist: $("fArtist").value || "Artista", album: $("fAlbum").value || "Album", color: state.color || null })}</div>`;
   $("fCoverDel").hidden = !src;
 }
+function focusDisc(id, fallbackY){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = [...document.querySelectorAll(`[data-id="${CSS.escape(id)}"]`)].find(e => e.offsetParent && !e.closest(".overlay"));
+    if (!el){ if (fallbackY != null) window.scrollTo(0, fallbackY); return; }
+    const r = el.getBoundingClientRect();
+    window.scrollTo(0, Math.max(0, r.top + window.scrollY - Math.max(80, (window.innerHeight - r.height) / 2)));
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 1800);
+  }));
+}
 function openForm(d, list){
+  state.formScroll = window.scrollY;
   state.editing = d ? d.id : null; state.formList = d ? (d.list || null) : list;
   state.pending = null; state.fgenres = [...(d?.genres || [])]; state.color = d?.color || "";
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
@@ -1466,7 +1479,7 @@ function openForm(d, list){
   drawGenres(); drawSwatches(); drawFormCover();
   $("formOv").hidden = false; $("form").scrollTop = 0;
 }
-$("fCancel").onclick = () => { $("formOv").hidden = true; };
+$("fCancel").onclick = () => { $("formOv").hidden = true; window.scrollTo(0, state.formScroll || 0); };
 ["fArtist","fAlbum"].forEach(id => $(id).addEventListener("input", () => { if (!state.pending) drawFormCover(); }));
 /* Artista: menu a tendina con gli artisti già presenti */
 function knownArtists(){
@@ -1581,8 +1594,10 @@ $("form").addEventListener("submit", async e => {
     if (prev) state.discs[state.discs.findIndex(d => d.id === id)] = data; else { state.discs.push(data); state.newId = id; }
     persist();
     $("formOv").hidden = true; state.pending = null;
+    const y = state.formScroll;
     render();
     if (!prev && !state.formList && state.view !== "collezione") showView("collezione");
+    focusDisc(id, y);
   } catch(err){ $("fErr").textContent = errText(err); }
 });
 
