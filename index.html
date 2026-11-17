@@ -421,19 +421,12 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 <div class="overlay" id="dgOv" hidden style="z-index:30">
   <div class="sheet">
     <h3>Collega a Discogs</h3>
-    <p style="margin:0">Scegli la stampa che hai in mano: confronta anno, paese, etichetta e numero di catalogo (lo trovi sul retro della copertina o sull'etichetta del disco).</p>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <input class="field" id="dgQ" autocomplete="off" style="flex:1" placeholder="Artista e titolo">
-      <button type="button" class="btn small" id="dgSearch">Cerca</button>
-    </div>
+    <p style="margin:0">Apri Discogs, trova la versione in vinile che hai in mano (controlla numero di catalogo, anno e paese) e copia il link della sua pagina: deve contenere <b>/release/</b>.</p>
+    <div class="vbtns" style="display:flex;margin-top:12px"><a class="btn ghost small" id="dgOpen" target="_blank" rel="noopener" style="text-decoration:none">Cerca il disco su Discogs</a></div>
+    <label for="dgUrl">Incolla qui il link</label>
+    <input class="field" id="dgUrl" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" placeholder="https://www.discogs.com/release/…">
     <div class="err" id="dgLinkErr"></div>
-    <div id="dgList"></div>
-    <label for="dgUrl">Oppure incolla il link della pagina Discogs del disco</label>
-    <div style="display:flex;gap:8px">
-      <input class="field" id="dgUrl" autocomplete="off" inputmode="url" style="flex:1" placeholder="https://www.discogs.com/release/…">
-      <button type="button" class="btn ghost small" id="dgUrlGo">Collega</button>
-    </div>
-    <div class="actions"><button type="button" class="btn ghost" id="dgClose">Annulla</button></div>
+    <div class="actions"><button type="button" class="btn ghost" id="dgClose">Annulla</button><button type="button" class="btn" id="dgUrlGo">Collega</button></div>
   </div>
 </div>
 <div class="overlay" id="cfOv" hidden style="z-index:40">
@@ -463,7 +456,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.31";
+const APP_VERSION = "1.33";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1016,28 +1009,12 @@ function alertInline(t){ const b = $("dValue"); if (b) b.insertAdjacentHTML("bef
 let dgFor = null;
 function openDgLink(id){
   const d = state.discs.find(x => x.id === id); if (!d) return;
-  dgFor = id; $("dgQ").value = `${d.artist} ${d.album}`; $("dgUrl").value = ""; $("dgLinkErr").textContent = ""; $("dgList").innerHTML = "";
+  dgFor = id; $("dgUrl").value = ""; $("dgLinkErr").textContent = "";
+  $("dgOpen").href = `https://www.discogs.com/search/?q=${encodeURIComponent(d.artist + " " + d.album)}&type=all&format_exact=Vinyl`;
   $("dgOv").hidden = false;
-  if (dgToken()) dgSearch(); else $("dgLinkErr").textContent = "Per cercare su Discogs serve il tuo codice personale: inseriscilo dal menu → Discogs. Intanto puoi incollare qui sotto il link della pagina del disco.";
 }
 $("dgClose").onclick = () => { $("dgOv").hidden = true; dgFor = null; };
 $("dgOv").onclick = e => { if (e.target === $("dgOv")){ $("dgOv").hidden = true; dgFor = null; } };
-async function dgSearch(){
-  const d = state.discs.find(x => x.id === dgFor); if (!d) return;
-  if (!dgToken()){ $("dgLinkErr").textContent = "Per cercare serve il codice Discogs (menu → Discogs)."; return; }
-  $("dgLinkErr").textContent = ""; $("dgList").innerHTML = `<p class="hint">Cerco su Discogs…</p>`;
-  const q = $("dgQ").value.trim(); const usePair = q === `${d.artist} ${d.album}`;
-  try {
-    let j = await dgGet(usePair ? `/database/search?type=release&format=Vinyl&per_page=50&artist=${encodeURIComponent(d.artist)}&release_title=${encodeURIComponent(d.album)}` : `/database/search?type=release&format=Vinyl&per_page=50&q=${encodeURIComponent(q)}`);
-    if (usePair && !(j.results || []).length) j = await dgGet(`/database/search?type=release&format=Vinyl&per_page=50&q=${encodeURIComponent(q)}`);
-    const res = (j.results || []).filter(r => (r.format || []).some(f => /vinyl/i.test(f))).sort((a, b) => (parseInt(a.year, 10) || 9999) - (parseInt(b.year, 10) || 9999));
-    state.dgRes = res;
-    $("dgList").innerHTML = res.length ? `<p class="hint">${res.length} stampe trovate, dalla più vecchia. Tocca quella che hai.</p>` + res.map((r, i) => { const inf = dgInfoFromSearch(r); return `<button type="button" class="dgres" data-i="${i}">${r.thumb ? `<img src="${esc(r.thumb)}" alt="" loading="lazy">` : `<span class="noimg"></span>`}<span><b>${esc(r.title)}</b><span>${[inf.year, inf.country, inf.label, inf.catno && inf.catno !== "none" ? "Cat. " + inf.catno : null].filter(Boolean).map(esc).join(" · ")}</span><span>${esc(inf.format || "")}</span></span></button>`; }).join("")
-      : `<p class="hint">Nessuna stampa trovata: prova a cambiare le parole cercate, oppure incolla il link qui sotto.</p>`;
-  } catch(e){ $("dgList").innerHTML = ""; $("dgLinkErr").textContent = e.code === "rate" ? "Troppe richieste a Discogs: aspetta un minuto e riprova." : e.status === 401 ? "Discogs non accetta il codice: controllalo dal menu → Discogs." : "Non riesco a contattare Discogs. Sei connesso?"; }
-}
-$("dgSearch").onclick = dgSearch;
-$("dgQ").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); dgSearch(); } });
 async function linkDisc(relId, info){
   const id = dgFor; if (!id) return;
   const prev = state.discs.find(x => x.id === id);
@@ -1047,12 +1024,20 @@ async function linkDisc(relId, info){
   $("dgOv").hidden = true; dgFor = null;
   if (!$("detOv").hidden) drawValue(id); refreshValue(id, false);
 }
-$("dgList").onclick = e => { const b = e.target.closest(".dgres"); if (!b) return; const r = (state.dgRes || [])[+b.dataset.i]; if (r) linkDisc(r.id, dgInfoFromSearch(r)); };
+$("dgUrl").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("dgUrlGo").click(); } });
 $("dgUrlGo").onclick = async () => {
-  const v = $("dgUrl").value.trim(); $("dgLinkErr").textContent = "";
-  if (/\/master\//i.test(v)){ $("dgLinkErr").textContent = "Questo è il link della pagina generale dell'album: apri la stampa precisa (indirizzo con /release/) e incolla quello."; return; }
-  const mm = v.match(/release\/(\d+)/i) || v.match(/^\[?r?(\d+)\]?$/i);
-  if (!mm){ $("dgLinkErr").textContent = "Non riconosco il link: deve contenere /release/ seguito da un numero."; return; }
+  const raw = $("dgUrl").value.trim(); $("dgLinkErr").textContent = "";
+  if (!raw){ $("dgLinkErr").textContent = "Incolla prima il link."; return; }
+  let v = raw; try { v = decodeURIComponent(raw); } catch(e){}
+  v = v.replace(/[\u200B-\u200D\uFEFF\s]+/g, "");
+  let relId = (v.match(/releases?[\/=_:-]+r?(\d+)/i) || v.match(/\[r(\d+)\]/i) || v.match(/^r?(\d{3,})$/i) || [])[1];
+  if (!relId){
+    const item = (v.match(/sell\/item\/(\d+)/i) || [])[1];
+    if (item){ try { const l = await dgGet(`/marketplace/listings/${item}`); relId = l?.release?.id ? String(l.release.id) : null; } catch(e){} }
+  }
+  if (!relId && /master/i.test(v)){ $("dgLinkErr").textContent = "Questo è il link della pagina generale dell'album: apri la versione precisa in vinile e incolla il suo link."; return; }
+  if (!relId){ $("dgLinkErr").textContent = `Non riconosco questo link: «${raw.slice(0, 120)}». Deve essere quello della pagina di una stampa precisa.`; return; }
+  const mm = [null, relId];
   try { const rel = await dgGet(`/releases/${mm[1]}`);
     if (!(rel.formats || []).some(f => /vinyl/i.test(f.name))){ $("dgLinkErr").textContent = `Questa stampa è ${(rel.formats || []).map(f => f.name).join(", ") || "un altro formato"}, non un vinile: apri la pagina della versione in vinile.`; return; }
     linkDisc(mm[1], dgInfoFromRelease(rel)); }
