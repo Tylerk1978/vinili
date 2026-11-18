@@ -63,7 +63,8 @@ html.homeview body{position:fixed;inset:0;width:100%;display:flex;flex-direction
 html.homeview header{flex:0 0 auto;width:100%;box-sizing:border-box}
 html.homeview .home{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 html.homeview .credits{padding-top:12px}
-@media (max-height:760px){ html.homeview .home{gap:10px;padding-top:10px} html.homeview .card{padding:12px 14px} html.homeview .card-art{height:72px} html.homeview .card-art .disc{width:60px;height:60px} }
+@media (max-height:900px){ html.homeview .home{gap:10px;padding-top:10px} html.homeview .card{padding:12px 14px} html.homeview .card-art{height:72px} html.homeview .card-art .disc{width:60px;height:60px} }
+@media (max-height:700px){ html.homeview .home{gap:8px;padding-top:6px} html.homeview .card{padding:9px 12px} html.homeview .card-art{height:58px;width:84px} html.homeview .card-title{font-size:24px} html.homeview .credits{padding-top:6px;line-height:1.4} }
 .credits b{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;font-weight:600;color:var(--muted)}
 .banner{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;background:#3a2a17;border:1px solid #8a6a3a;border-radius:16px;padding:14px 16px}
 .banner b{display:block;font-size:15px}
@@ -142,6 +143,8 @@ html.homeview .credits{padding-top:12px}
 .vbox .vsub{color:var(--muted);font-size:12.5px;margin-top:4px}
 .vbox .vpress{color:var(--ink);font-size:12.5px;margin-top:8px}
 .vbox .vbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.vbox .vbtns.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vbox .vbtns.grid2 > .btn{width:100%;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;min-height:40px}
 .vbox select.field{padding:7px 32px 7px 10px;font-size:13px;width:auto;margin-top:8px}
 .dgres{display:flex;gap:12px;align-items:center;width:100%;text-align:left;appearance:none;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:8px;color:var(--ink);cursor:pointer;font:13px Inter,sans-serif}
 .dgres:hover{border-color:var(--accent)}
@@ -287,6 +290,16 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .crit{margin:10px 0 0;padding-left:20px;font-size:14px;line-height:1.5}
 .crit li{margin-bottom:10px}
 .crit b{color:var(--ink)}
+.rlist{display:flex;flex-direction:column;gap:8px}
+.rrow{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:linear-gradient(180deg,#271f17,#1e1812);border:1px solid #4a3d2e;border-radius:14px;padding:10px 12px;color:var(--ink);cursor:pointer;font:inherit}
+.rrow.past{opacity:.55}
+.rrow .rdate{flex:0 0 64px;text-align:center;background:#100c09;border-radius:10px;padding:6px 4px;border-bottom:3px solid #9e5a2e}
+.rrow .rdate b{display:block;font:700 22px Georgia,serif;color:var(--accent);line-height:1.1}
+.rrow .rdate span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.rrow .rtxt{flex:1;min-width:0}
+.rrow .rtxt b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow .rtxt span{display:block;color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow .chev{font-size:22px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -318,6 +331,11 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div class="card-body"><div class="card-title">Wishlist</div><div class="card-sub" id="homeWishSub"></div></div>
     <span class="chev">›</span>
   </button>
+  <button class="card" id="goRel">
+    <div class="card-art pie" id="homeRel"><svg viewBox="0 0 96 84" width="100%" height="100%" aria-hidden="true"><rect x="14" y="14" width="68" height="60" rx="7" fill="#e9dcc0"/><rect x="14" y="14" width="68" height="16" rx="7" fill="#9e5a2e"/><rect x="14" y="24" width="68" height="6" fill="#9e5a2e"/><rect x="28" y="8" width="5" height="13" rx="2.5" fill="#3a2c1f"/><rect x="63" y="8" width="5" height="13" rx="2.5" fill="#3a2c1f"/><g fill="#b5a487"><rect x="22" y="37" width="9" height="7" rx="1.5"/><rect x="36" y="37" width="9" height="7" rx="1.5"/><rect x="50" y="37" width="9" height="7" rx="1.5"/><rect x="22" y="49" width="9" height="7" rx="1.5"/><rect x="36" y="49" width="9" height="7" rx="1.5"/><rect x="22" y="61" width="9" height="7" rx="1.5"/></g><circle cx="66" cy="60" r="19" fill="#0b0b0b"/><circle cx="66" cy="60" r="14" fill="none" stroke="#262626"/><circle cx="66" cy="60" r="9" fill="none" stroke="#262626"/><circle cx="66" cy="60" r="6" fill="#d9a65a"/><circle cx="66" cy="60" r="1.4" fill="#0b0b0b"/></svg></div>
+    <div class="card-body"><div class="card-title">Nuove uscite</div><div class="card-sub" id="homeRelSub"></div></div>
+    <span class="chev">›</span>
+  </button>
   <button class="card" id="goStats">
     <div class="card-art pie" id="homeBars"><svg viewBox="0 0 96 84" width="100%" height="100%" aria-hidden="true"><circle cx="48" cy="42" r="34" fill="#0b0b0b"/><path d="M48 42 L48 8 A34 34 0 0 1 80.3 52.5 Z" fill="#d9a65a"/><path d="M48 42 L80.3 52.5 A34 34 0 0 1 30 70.8 Z" fill="#9e5a2e"/><path d="M48 42 L30 70.8 A34 34 0 0 1 16 30 Z" fill="#6b7f5a"/><circle cx="48" cy="42" r="34" fill="none" stroke="#100c09" stroke-width="1"/><circle cx="48" cy="42" r="26" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1"/><circle cx="48" cy="42" r="18" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1"/><circle cx="48" cy="42" r="9" fill="#16120f"/><circle cx="48" cy="42" r="2" fill="#d9a65a"/></svg></div>
     <div class="card-body"><div class="card-title">Statistiche</div><div class="card-sub" id="homeStatsSub"></div></div>
@@ -346,6 +364,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <section id="viewArtist" class="wrap" hidden></section>
 <section id="viewStats" class="wrap" hidden></section>
+<section id="viewRel" class="wrap" hidden><div id="relMain"></div></section>
 
 <section id="viewLists" class="wrap" hidden>
   <div class="controls">
@@ -476,7 +495,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.46";
+const APP_VERSION = "1.49";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -566,16 +585,98 @@ const spineSpan = d => spineHTML(d).trim().replace(/^<button/, "<span").replace(
 const BOX_SVG = `<svg class="disc" viewBox="0 0 100 100" aria-hidden="true"><path d="M18 38 L50 24 L82 38 L82 74 L50 88 L18 74 Z" fill="#b8874f"/><path d="M18 38 L50 52 L82 38 L50 24 Z" fill="#d9a65a"/><path d="M50 52 L50 88" stroke="#8a6332" stroke-width="2"/><path d="M34 31 L66 45" stroke="#e8d3a6" stroke-width="6" opacity=".8"/></svg>`;
 const DISC_SVG = `<svg class="disc" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#0b0b0b"/>${[42,36,30,24].map(r => `<circle cx="50" cy="50" r="${r}" fill="none" stroke="#262626" stroke-width="1"/>`).join("")}<circle cx="50" cy="50" r="15" fill="#d9a65a"/><circle cx="50" cy="50" r="2.5" fill="#0b0b0b"/><path d="M20 30 A36 36 0 0 1 40 15" stroke="#fff" stroke-opacity=".18" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
 
+/* ---------- Nuove uscite ---------- */
+const REL_KEY = "vinili.releases.v1";
+const MESI = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+function getRels(){ try { const a = JSON.parse(localStorage.getItem(REL_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
+function setRels(a){ try { localStorage.setItem(REL_KEY, JSON.stringify(a)); } catch(e){ throw { code: "storage" }; } setMeta("lastChangeAt", new Date().toISOString()); }
+function cleanRels(a){ return (Array.isArray(a) ? a : []).filter(r => r && typeof r.artist === "string" && typeof r.title === "string").map(r => ({ id: String(r.id || "u" + Math.random().toString(36).slice(2,10)), date: typeof r.date === "string" && /^\d{4}(-\d{2}-\d{2})?$/.test(r.date) ? r.date : null, artist: r.artist.slice(0, 120), title: r.title.slice(0, 160), createdAt: typeof r.createdAt === "string" ? r.createdAt : new Date().toISOString() })); }
+const relKey = r => r.date ? (r.date.length === 4 ? r.date + "-12-31" : r.date) : "9999-12-31";
+function relSplit(){
+  const today = dayKey(), all = getRels();
+  const next = all.filter(r => relKey(r) >= today).sort((a,b) => relKey(a).localeCompare(relKey(b)) || a.artist.localeCompare(b.artist, "it"));
+  const past = all.filter(r => relKey(r) < today).sort((a,b) => relKey(b).localeCompare(relKey(a)));
+  return { next, past, all };
+}
+function relDateBox(r){
+  if (!r.date) return `<div class="rdate"><b>?</b><span>data da definire</span></div>`;
+  if (r.date.length === 4) return `<div class="rdate"><b>${r.date}</b><span>anno</span></div>`;
+  const [y, m, d] = r.date.split("-");
+  return `<div class="rdate"><b>${+d}</b><span>${MESI[+m - 1]} ${y}</span></div>`;
+}
+function relRow(r, past){ return `<button class="rrow${past ? " past" : ""}" data-rel="${esc(r.id)}">${relDateBox(r)}<span class="rtxt"><b>${esc(r.title)}</b><span>${esc(r.artist)}</span></span><span class="chev">›</span></button>`; }
+function renderRel(){
+  const { next, past, all } = relSplit();
+  const n = next[0];
+  $("homeRelSub").textContent = n ? `Prossima: ${n.date && n.date.length === 10 ? `${+n.date.slice(8)} ${MESI[+n.date.slice(5,7) - 1]}` : n.date || "data da definire"} · ${n.artist}` : "Le prossime uscite da non perdere";
+  if (state.view !== "uscite") return;
+  $("relMain").innerHTML = `
+    <div class="sechead"><h2>Nuove uscite</h2><span>${next.length} ${next.length === 1 ? "in arrivo" : "in arrivo"}</span><button class="linkbtn add" id="relAdd">+ Aggiungi</button></div>
+    ${next.length ? `<div class="rlist">${next.map(r => relRow(r)).join("")}</div>` : `<p class="nores">${all.length ? "Nessuna uscita in programma." : "Aggiungi le uscite che aspetti: data, artista e titolo."}</p>`}
+    ${past.length ? `<div class="sechead" style="margin-top:22px"><h2 style="font-size:22px">Già uscite</h2><span>${past.length}</span></div><div class="rlist">${past.map(r => relRow(r, true)).join("")}</div>` : ""}`;
+}
+$("viewRel").addEventListener("click", e => {
+  if (e.target.closest("#relAdd")) return openRelForm(null);
+  const r = e.target.closest("[data-rel]"); if (r) openRelForm(r.dataset.rel);
+});
+function openRelForm(id){
+  const r = id ? getRels().find(x => x.id === id) : null; if (id && !r) return;
+  const dv = r && r.date ? (r.date.length === 4 ? r.date : fmtDate(r.date)) : "";
+  $("menu").innerHTML = `
+    <h3>${r ? "Modifica uscita" : "Nuova uscita"}</h3>
+    <label for="rDate">Data di uscita</label>
+    <input class="field" id="rDate" inputmode="numeric" autocomplete="off" placeholder="es. 30-10-2026 oppure 2026" value="${esc(dv)}">
+    <label for="rArtist">Artista</label>
+    <input class="field" id="rArtist" list="artistList" autocomplete="off" value="${esc(r ? r.artist : "")}">
+    <label for="rTitle">Titolo</label>
+    <input class="field" id="rTitle" autocomplete="off" value="${esc(r ? r.title : "")}">
+    <div class="err" id="rErr"></div>
+    ${r ? `<button type="button" class="btn ghost" id="rWish" style="width:100%;margin-top:12px">Metti in wishlist</button>` : ""}
+    <div class="actions">${r ? `<button type="button" class="btn ghost" id="rDel">Elimina</button>` : ""}<button type="button" class="btn ghost" id="rCancel">Annulla</button><button type="button" class="btn" id="rSave">Salva</button></div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  if (!r) setTimeout(() => $("rDate").focus(), 50);
+  $("rCancel").onclick = () => { $("menuOv").hidden = true; };
+  const read = () => {
+    const pd = parseRelease($("rDate").value), artist = $("rArtist").value.trim(), title = $("rTitle").value.trim();
+    if (pd === null){ $("rErr").textContent = "Scrivi la data come 30-10-2026, oppure solo l'anno."; return null; }
+    if (!artist || !title){ $("rErr").textContent = "Servono artista e titolo."; return null; }
+    return { date: pd.date || (pd.year ? String(pd.year) : null), artist, title };
+  };
+  $("rSave").onclick = async () => {
+    const v = read(); if (!v) return;
+    if (r && !(await askConfirm("Salvare le modifiche?", `«${v.title}» di ${v.artist}.`, "Salva"))) return;
+    try {
+      const all = getRels();
+      setRels(r ? all.map(x => x.id === r.id ? { ...x, ...v } : x) : [...all, { id: "u" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), ...v, createdAt: new Date().toISOString() }]);
+      $("menuOv").hidden = true; renderRel();
+    } catch(e){ $("rErr").textContent = "Non riesco a salvare: memoria piena?"; }
+  };
+  if (r){
+    $("rDel").onclick = async () => {
+      if (!(await askConfirm("Eliminare l'uscita?", `«${r.title}» di ${r.artist} verrà tolta dalla lista.`, "Elimina", true))) return;
+      setRels(getRels().filter(x => x.id !== r.id)); $("menuOv").hidden = true; renderRel();
+    };
+    $("rWish").onclick = async () => {
+      if (!(await askConfirm("Mettere in wishlist?", `«${r.title}» di ${r.artist} verrà aggiunto alla wishlist. L'uscita resta anche in questa lista.`, "Aggiungi"))) return;
+      const pd = r.date ? parseRelease(r.date.length === 4 ? r.date : fmtDate(r.date)) : null;
+      state.discs.push({ id: "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), artist: r.artist, album: r.title, year: pd ? pd.year : null, ...(pd && pd.date ? { releaseDate: pd.date } : {}), genres: null, list: "wish", createdAt: new Date().toISOString() });
+      try { persist(); } catch(e){ $("rErr").textContent = "Non riesco a salvare."; return; }
+      $("menuOv").hidden = true; render();
+    };
+  }
+}
+
 /* ---------- Pagine ---------- */
 function showView(v, push = true){
-  if (!["home","collezione","wishlist","inarrivo","artista","statistiche"].includes(v)) v = "home";
+  if (!["home","collezione","wishlist","inarrivo","artista","statistiche","uscite"].includes(v)) v = "home";
   if (v === "artista" && !state.artist) v = "home";
   if (state.view !== v){ state.lq = ""; $("lq").value = ""; }
   state.view = v;
   document.documentElement.classList.toggle("homeview", v === "home");
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
-  $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche";
-  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden;
+  $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche"; $("viewRel").hidden = v !== "uscite";
+  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo","uscite"].includes(v); $("scanBtn").hidden = $("addBtn").hidden || v === "uscite";
+  $("addBtn").textContent = v === "uscite" ? "+ Aggiungi uscita" : "+ Aggiungi disco";
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
@@ -588,14 +689,15 @@ $("backBtn").onclick = () => {
   if (state.view === "statistiche" && state.statsSub) return statsUp();
   showView("home");
 };
+$("goRel").onclick = () => showView("uscite");
 $("goStats").onclick = () => { state.statsSub = null; state.statsOpen = null; showView("statistiche"); };
 $("homeLink").onclick = () => { state.artistReturn = null; showView("home"); };
-$("addBtn").onclick = () => openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null);
+$("addBtn").onclick = () => state.view === "uscite" ? openRelForm(null) : openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null);
 
 function render(){
   const coll = collection();
   $("sub").textContent = coll.length ? `${coll.length} ${coll.length === 1 ? "disco" : "dischi"} in collezione` : "La collezione ti aspetta";
-  renderHome(); renderColl(); renderLists();
+  renderHome(); renderColl(); renderLists(); renderRel();
   if (state.view === "artista") renderArtist();
   if (state.view === "statistiche") renderStats();
 }
@@ -1032,7 +1134,7 @@ async function drawValue(id, auto){
   if (m && m.sugg && typeof d.valueManual !== "number") h += `<select class="field" id="vCond" aria-label="Condizioni del disco">${CONDS.filter(c => typeof m.sugg[c[0]] === "number").map(c => `<option value="${esc(c[0])}"${c[0] === (d.condition || DEF_COND) ? " selected" : ""}>${esc(c[1])} · ${money(m.sugg[c[0]], m.scur)}</option>`).join("")}</select>`;
   if (m) h += `<div class="vsub">Aggiornato il ${new Date(m.at).toLocaleDateString("it-IT")}.</div>`;
   h += `<div class="vpress">${pressLine(d.discogsInfo) || "Stampa collegata su Discogs"}</div>
-    <div class="vbtns"><button type="button" class="btn ghost small" id="vRefresh">Aggiorna prezzo</button><a class="btn ghost small" href="https://www.discogs.com/release/${encodeURIComponent(d.discogsId)}" target="_blank" rel="noopener" style="text-decoration:none">Vedi su Discogs</a><button type="button" class="btn ghost small" id="vLink">Cambia stampa</button><button type="button" class="btn ghost small" id="vUnlink">Annulla link</button></div>`;
+    <div class="vbtns grid2"><button type="button" class="btn ghost small" id="vRefresh">Aggiorna prezzo</button><a class="btn ghost small" href="https://www.discogs.com/release/${encodeURIComponent(d.discogsId)}" target="_blank" rel="noopener" style="text-decoration:none">Vedi su Discogs</a><button type="button" class="btn ghost small" id="vLink">Cambia stampa</button><button type="button" class="btn ghost small" id="vUnlink">Annulla link</button></div>`;
   box.innerHTML = h;
   $("vUnlink").onclick = async () => {
     if (!(await askConfirm("Annullare il collegamento a Discogs?", "Il disco non sarà più collegato a nessuna stampa su Discogs e il suo prezzo di mercato verrà tolto. Potrai ricollegarlo quando vuoi.", "Scollega", true))) return;
@@ -1366,7 +1468,9 @@ function tracksHTML(t){
 async function openDetail(id){
   const d = state.discs.find(x => x.id === id); if (!d) return;
   const status = d.list === "wish" ? "In wishlist" : d.list === "incoming" ? "In arrivo" : null;
+  const backLbl = state.fromUnlinked ? "Dischi da collegare" : ({ collezione: "Collezione", wishlist: "Wishlist", inarrivo: "In arrivo", statistiche: "Statistiche", artista: state.artist || "Artista" }[state.view] || "Indietro");
   $("det").innerHTML = `
+    <button class="backlink" id="dBack" style="margin:-4px 0 10px">‹ ${esc(backLbl)}</button>
     <div class="dtop">
       <div class="dcover" id="dCover">${spineSpan(d)}</div>
       <div class="dinfo">
@@ -1400,6 +1504,7 @@ async function openDetail(id){
   if (src) await new Promise(res => { $("dCover").innerHTML = `<img src="${esc(src)}" alt="">`; const im = $("dCover").querySelector("img"); const t = setTimeout(res, 700); im.onload = () => { clearTimeout(t); res(); }; im.onerror = () => { clearTimeout(t); $("dCover").innerHTML = spineSpan(d); res(); }; });
   $("detOv").hidden = false; $("det").scrollTop = 0;
   $("dClose").onclick = () => { $("detOv").hidden = true; backToUnlinked(); };
+  $("dBack").onclick = () => $("dClose").click();
   $("dEdit").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openForm(d, d.list || null); };
   $("dArtist").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(d.artist, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); };
   $("det").querySelectorAll(".chip.tag").forEach(c => c.onclick = () => { $("detOv").hidden = true; state.genre = c.dataset.g; state.q = ""; $("q").value = ""; showView("collezione"); });
@@ -1694,7 +1799,7 @@ async function prepareBackup(progress){
     if (++n % 20 === 0) progress(`Preparo il backup… ${Math.round(n / total * 100)}%`);
   }
   if (photoParts.length) parts.push(new Blob(photoParts));
-  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {}, genresExtra: extraGenres() });
+  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {}, genresExtra: extraGenres(), releases: getRels() });
   parts.unshift(head.slice(0, -1) + ',"artistPhotos":{');
   parts.push('},"discs":['); first = true;
   for (const d of state.discs){
@@ -1767,6 +1872,7 @@ function parseBackup(text){
   if (data && data.artistInfo && typeof data.artistInfo === "object") out.artistInfo = data.artistInfo;
   if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
   for (const f of ["artistPhotoUrls", "artistAuto", "artistManual"]) if (data && data[f] && typeof data[f] === "object") out[f] = data[f];
+  if (data && Array.isArray(data.releases)) out.releases = cleanRels(data.releases);
   if (data && Array.isArray(data.genresExtra)) out.genresExtra = data.genresExtra.filter(g => typeof g === "string" && g.trim()).map(g => g.trim().slice(0, 30));
   return out;
 }
@@ -1777,6 +1883,7 @@ async function applyImport(discs){
   Object.keys(coverURLs).forEach(dropCover);
   const ai = discs.artistInfo, ap = discs.artistPhotos; delete discs.artistInfo; delete discs.artistPhotos;
   const apu = discs.artistPhotoUrls, aau = discs.artistAuto, aman = discs.artistManual; delete discs.artistPhotoUrls; delete discs.artistAuto; delete discs.artistManual;
+  const rels = discs.releases; delete discs.releases; if (rels) setRels(rels);
   const gex = discs.genresExtra; delete discs.genresExtra; if (gex) setExtra([...extraGenres(), ...gex]);
   if (apu){ const cur = { ...artistUrlMap() }; for (const [k, v] of Object.entries(apu)) if (typeof v === "string" && /^https:\/\//.test(v) && !cur[k] && !(await (async () => { try { return !!(await idb.get("artist:" + k)); } catch(e){ return false; } })())) cur[k] = v; setMeta("artistPhotoUrls", cur); }
   if (aau) setMeta("artistAuto", { ...aau, ...artistAutoMap() });
