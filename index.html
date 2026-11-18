@@ -495,7 +495,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.49";
+const APP_VERSION = "1.51";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -625,7 +625,8 @@ function openRelForm(id){
   $("menu").innerHTML = `
     <h3>${r ? "Modifica uscita" : "Nuova uscita"}</h3>
     <label for="rDate">Data di uscita</label>
-    <input class="field" id="rDate" inputmode="numeric" autocomplete="off" placeholder="es. 30-10-2026 oppure 2026" value="${esc(dv)}">
+    <input class="field" id="rDate" inputmode="numeric" autocomplete="off" placeholder="es. 30102026 oppure 2026" value="${esc(dv)}">
+    <div class="hint">Scrivi solo i numeri: i trattini si mettono da soli. Per l'anno basta 2026.</div>
     <label for="rArtist">Artista</label>
     <input class="field" id="rArtist" list="artistList" autocomplete="off" value="${esc(r ? r.artist : "")}">
     <label for="rTitle">Titolo</label>
@@ -635,10 +636,15 @@ function openRelForm(id){
     <div class="actions">${r ? `<button type="button" class="btn ghost" id="rDel">Elimina</button>` : ""}<button type="button" class="btn ghost" id="rCancel">Annulla</button><button type="button" class="btn" id="rSave">Salva</button></div>`;
   $("menuOv").hidden = false; $("menu").scrollTop = 0;
   if (!r) setTimeout(() => $("rDate").focus(), 50);
+  $("rDate").addEventListener("input", e => {
+    const v = e.target.value; if (!/^[\d\s\-\/.]*$/.test(v)) return;
+    const dg = v.replace(/\D/g, "").slice(0, 8);
+    e.target.value = dg.length > 4 ? dg.slice(0, 2) + "-" + dg.slice(2, 4) + "-" + dg.slice(4) : dg;
+  });
   $("rCancel").onclick = () => { $("menuOv").hidden = true; };
   const read = () => {
     const pd = parseRelease($("rDate").value), artist = $("rArtist").value.trim(), title = $("rTitle").value.trim();
-    if (pd === null){ $("rErr").textContent = "Scrivi la data come 30-10-2026, oppure solo l'anno."; return null; }
+    if (pd === null){ $("rErr").textContent = "Data non valida: scrivi 30102026 (giorno, mese, anno) oppure solo l'anno."; return null; }
     if (!artist || !title){ $("rErr").textContent = "Servono artista e titolo."; return null; }
     return { date: pd.date || (pd.year ? String(pd.year) : null), artist, title };
   };
@@ -675,8 +681,9 @@ function showView(v, push = true){
   document.documentElement.classList.toggle("homeview", v === "home");
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
   $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche"; $("viewRel").hidden = v !== "uscite";
-  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo","uscite"].includes(v); $("scanBtn").hidden = $("addBtn").hidden || v === "uscite";
+  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden || v === "uscite";
   $("addBtn").textContent = v === "uscite" ? "+ Aggiungi uscita" : "+ Aggiungi disco";
+  $("menuBtn").hidden = v === "uscite";
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
