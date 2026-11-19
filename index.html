@@ -201,10 +201,10 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .chip.vin{display:inline-flex;align-items:center;gap:6px}
 .chip.vin i{width:10px;height:10px;border-radius:50%;background:var(--vc);border:1px solid rgba(255,255,255,.3)}
 .dsec{margin-top:20px}
-.dsec h4{font-size:13px;color:var(--muted);font-weight:500;margin:0 0 6px}
-.dsec .box{background:var(--field);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;white-space:pre-wrap;text-align:justify}
-.tracks{margin:0;padding:10px 14px 10px 38px;background:var(--field);border-radius:12px;font-size:13px;line-height:1.7}
-.tracks li::marker{color:var(--muted);font-size:12px}
+.dsec h4{font-size:12px;color:var(--muted);font-weight:500;margin:0 0 6px}
+.dsec .box{background:var(--field);border-radius:12px;padding:10px 13px;font-size:11.5px;line-height:1.5;white-space:pre-wrap;text-align:justify}
+.tracks{margin:0;padding:9px 13px 9px 36px;background:var(--field);border-radius:12px;font-size:11.5px;line-height:1.6}
+.tracks li::marker{color:var(--muted);font-size:11px}
 .tracks li.side{list-style:none;margin-left:-24px;color:var(--accent);font-weight:600;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-top:6px}
 .bigact{width:100%;margin-top:16px}
 .menu .item{display:block;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:14px 16px;margin-top:10px;cursor:pointer;font-size:15px;font-weight:600}
@@ -498,7 +498,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.55";
+const APP_VERSION = "1.56";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
