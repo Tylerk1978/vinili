@@ -416,6 +416,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label for="fDuration">Durata</label>
     <input class="field" id="fDuration" type="text" autocomplete="off" placeholder="Es. 45:32 oppure 1:12:05">
+    <label for="fRating">Voto</label>
+    <select class="field" id="fRating"><option value="">Nessun voto</option><option value="0.5">0,5 stelle</option><option value="1">1 stella</option><option value="1.5">1,5 stelle</option><option value="2">2 stelle</option><option value="2.5">2,5 stelle</option><option value="3">3 stelle</option><option value="3.5">3,5 stelle</option><option value="4">4 stelle</option><option value="4.5">4,5 stelle</option><option value="5">5 stelle</option></select>
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -496,7 +498,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.54";
+const APP_VERSION = "1.55";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1503,12 +1505,12 @@ async function openDetail(id){
         ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
-          ${(d.genres || []).map(g => `<button class="chip tag" data-g="${esc(g)}">${esc(g)}</button>`).join("")}
         </div>
       </div>
     </div>
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
+    ${(d.genres || []).length ? `<div class="dsec"><h4>Genere</h4><div class="box">${d.genres.map(esc).join(", ")}</div></div>` : ""}
     ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${esc(d.producer)}</div></div>` : ""}
     ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
@@ -1527,7 +1529,6 @@ async function openDetail(id){
   $("dBack").onclick = () => $("dClose").click();
   $("dEdit").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openForm(d, d.list || null); };
   $("dArtist").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(d.artist, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); };
-  $("det").querySelectorAll(".chip.tag").forEach(c => c.onclick = () => { $("detOv").hidden = true; state.genre = c.dataset.g; state.q = ""; $("q").value = ""; showView("collezione"); });
   $("dDel").onclick = async () => {
     if (!(await askConfirm("Eliminare il disco?", `«${d.album}» di ${d.artist} verrà eliminato.`, "Elimina", true))) return;
     state.discs = state.discs.filter(x => x.id !== id); dropCover(id); try { await idb.del(id); persist(); } catch(e){}
@@ -1656,6 +1657,7 @@ function openForm(d, list){
   state.formBarcode = d?.barcode || null; state.formDiscogs = null;
   $("fValue").value = "";
   $("fFeat").value = featText(d);
+  $("fRating").value = Number(d?.rating) > 0 ? String(Math.round(Number(d.rating) * 2) / 2) : "";
   $("fScan").hidden = !!d;
   drawGenres(); drawSwatches(); drawFormCover();
   $("formOv").hidden = false; $("form").scrollTop = 0;
@@ -1756,6 +1758,7 @@ $("form").addEventListener("submit", async e => {
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, duration: normDuration($("fDuration").value), genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: null, vinylNotes: $("fFeat").value.trim() || null,
+    rating: parseFloat($("fRating").value) > 0 ? parseFloat($("fRating").value) : null,
     lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
     discs: null, limited: null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
