@@ -306,6 +306,12 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .tsrow .btn{min-width:46px;padding:8px 0}
 .tsval{text-align:center;font:600 22px Georgia,serif;color:var(--accent);margin-top:10px}
 .tsprev{margin-top:12px;background:var(--field);border-radius:12px;padding:10px 13px;font-size:calc(11.5px * var(--ts, 1));line-height:1.5}
+.dgplist{display:flex;flex-direction:column;gap:6px;max-height:46vh;overflow-y:auto}
+.dgp{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px;color:var(--ink);font:inherit;cursor:pointer}
+.dgp img,.dgp .ph{width:46px;height:46px;border-radius:6px;object-fit:cover;flex:0 0 46px;background:#100c09}
+.dgp b{display:block;font-size:13px;line-height:1.3}
+.dgp small{display:block;font-size:11.5px;color:var(--ink);opacity:.85;margin-top:2px;line-height:1.35}
+.vstars{white-space:nowrap;letter-spacing:1px;font-size:16px}
 </style>
 </head>
 <body>
@@ -468,8 +474,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 <div class="overlay" id="dgOv" hidden style="z-index:30">
   <div class="sheet">
     <h3>Collega a Discogs</h3>
-    <p style="margin:0">Apri Discogs, trova la versione in vinile che hai in mano (controlla numero di catalogo, anno e paese) e copia il link della sua pagina: deve contenere <b>/release/</b>.</p>
-    <div class="vbtns" style="display:flex;margin-top:12px"><a class="btn ghost small" id="dgOpen" target="_blank" rel="noopener" style="text-decoration:none">Cerca il disco su Discogs</a></div>
+    <p style="margin:0">Tocca il simbolo del codice a barre e inquadra quello sul retro del vinile. Oppure apri Discogs, trova la versione in vinile che hai in mano (controlla numero di catalogo, anno e paese) e incolla qui sotto il link della sua pagina: deve contenere <b>/release/</b>.</p>
+    <div class="vbtns" style="display:flex;gap:8px;margin-top:12px;align-items:stretch"><a class="btn ghost small" id="dgOpen" target="_blank" rel="noopener" style="text-decoration:none">Cerca il disco su Discogs</a><button type="button" class="btn ghost small" id="dgScan" aria-label="Leggi il codice a barre" title="Leggi il codice a barre" style="display:flex;align-items:center;justify-content:center;padding:6px 14px"><svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true" fill="currentColor"><rect x="0" y="0" width="2" height="18"/><rect x="4" y="0" width="1" height="18"/><rect x="7" y="0" width="3" height="18"/><rect x="12" y="0" width="1" height="18"/><rect x="15" y="0" width="2" height="18"/><rect x="19" y="0" width="1" height="18"/><rect x="22" y="0" width="1.5" height="18"/><rect x="25" y="0" width="1" height="18"/></svg></button></div>
+    <div id="dgPick"></div>
     <label for="dgUrl">Incolla qui il link</label>
     <input class="field" id="dgUrl" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" placeholder="https://www.discogs.com/release/…">
     <div class="err" id="dgLinkErr"></div>
@@ -503,7 +510,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.69";
+const APP_VERSION = "1.71";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1191,7 +1198,7 @@ function alertInline(t){ const b = $("dValue"); if (b) b.insertAdjacentHTML("bef
 let dgFor = null;
 function openDgLink(id){
   const d = state.discs.find(x => x.id === id); if (!d) return;
-  dgFor = id; $("dgUrl").value = ""; $("dgLinkErr").textContent = "";
+  dgFor = id; $("dgUrl").value = ""; $("dgLinkErr").textContent = ""; $("dgPick").innerHTML = "";
   $("dgOpen").href = `https://www.discogs.com/search/?q=${encodeURIComponent(d.artist + " " + d.album)}&type=all&format_exact=Vinyl`;
   $("dgOv").hidden = false;
 }
@@ -1225,6 +1232,33 @@ $("dgUrlGo").onclick = async () => {
     linkDisc(mm[1], dgInfoFromRelease(rel)); }
   catch(e){ $("dgLinkErr").textContent = e.status === 404 ? "Su Discogs non esiste una stampa con questo numero." : "Non riesco a contattare Discogs. Sei connesso?"; }
 };
+/* Collega leggendo il codice a barre */
+let scanForLink = null;
+$("dgScan").onclick = () => {
+  if (!dgToken()){ $("dgLinkErr").textContent = "Per cercare con il codice a barre serve il codice Discogs: menu ⋯ → Discogs."; return; }
+  if (!navigator.onLine){ $("dgLinkErr").textContent = "Serve la connessione a internet."; return; }
+  scanForLink = dgFor; $("dgLinkErr").textContent = ""; $("dgPick").innerHTML = "";
+  $("dgOv").hidden = true; openScanner();
+};
+async function linkFromBarcode(code){
+  const id = scanForLink; scanForLink = null;
+  dgFor = id; $("dgOv").hidden = false; $("dgPick").innerHTML = `<p class="vsub" style="margin-top:12px">Codice ${esc(code)}: cerco su Discogs…</p>`;
+  let res = [];
+  try { const j = await dgGet(`/database/search?barcode=${encodeURIComponent(code)}&type=release&per_page=50`); res = j.results || []; }
+  catch(e){ $("dgPick").innerHTML = ""; $("dgLinkErr").textContent = e.code === "rate" ? "Discogs è occupato: riprova tra un minuto." : "Non riesco a contattare Discogs. Sei connesso?"; return; }
+  const vinyl = res.filter(x => (x.format || []).some(f => /vinyl|lp/i.test(f)));
+  const list = vinyl.length ? vinyl : [];
+  if (!list.length){ $("dgPick").innerHTML = ""; $("dgLinkErr").textContent = res.length ? `Con il codice ${code} Discogs trova solo versioni non in vinile (${[...new Set(res.flatMap(x => x.format || []))].slice(0, 3).join(", ")}). Cerca il disco a mano.` : `Nessun disco trovato su Discogs con il codice ${code}. Cerca il disco a mano.`; return; }
+  const row = (x, i) => `<button type="button" class="dgp" data-i="${i}">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" onerror="this.remove()">` : `<span class="ph"></span>`}<span><b>${esc(x.title || "")}</b><small>${pressLine(dgInfoFromSearch(x))}</small></span></button>`;
+  $("dgPick").innerHTML = `<p class="vsub" style="margin:12px 0 6px">${list.length === 1 ? "Ho trovato questa stampa:" : `Ho trovato ${list.length} stampe con questo codice: scegli quella che hai in mano.`}</p><div class="dgplist">${list.map(row).join("")}</div>`;
+  $("dgPick").querySelectorAll(".dgp").forEach(b => b.onclick = async () => {
+    const x = list[+b.dataset.i]; const inf = dgInfoFromSearch(x);
+    const desc = [inf.label, inf.catno, inf.country, inf.year].filter(Boolean).join(" · ");
+    if (!(await askConfirm("Collegare questa stampa?", `${x.title || ""}${desc ? " — " + desc : ""}`, "Collega"))) return;
+    let info = inf; try { info = dgInfoFromRelease(await dgGet(`/releases/${x.id}`)); } catch(e){}
+    linkDisc(String(x.id), info);
+  });
+}
 /* Aggiornamento di tutti i prezzi (dalle statistiche) */
 async function bulkRefresh(){
   if (state.bulk && state.bulk.running){ state.bulk.stop = true; return; }
@@ -1280,16 +1314,18 @@ function groups(kind){
     else if (kind === "artista") keys = [d.artist];
     else if (kind === "anno") keys = [d.year ? String(d.year) : "Anno sconosciuto"];
     else if (kind === "decennio") keys = [d.year ? `Anni ${String(Math.floor(d.year / 10) * 10)}` : "Anno sconosciuto"];
+    else if (kind === "voto") keys = [Number(d.rating) > 0 ? String(Math.round(Number(d.rating) * 2) / 2) : "Senza voto"];
     else keys = [d.vinyl ? d.vinyl.trim().replace(/^./, c => c.toUpperCase()) : "Non indicato"];
     for (const k of keys){ const kk = kind === "artista" ? akey(k) : k; if (!m.has(kk)) m.set(kk, { label: k, items: [] }); m.get(kk).items.push(d); }
   }
   const arr = [...m.entries()].map(([key, v]) => ({ key, label: v.label, items: v.items.sort(discSort) }));
   if (kind === "anno") return arr.sort((a,b) => (a.label === "Anno sconosciuto") - (b.label === "Anno sconosciuto") || Number(a.label) - Number(b.label));
   if (kind === "decennio") return arr.sort((a,b) => a.label.localeCompare(b.label));
+  if (kind === "voto") return arr.sort((a,b) => (a.key === "Senza voto") - (b.key === "Senza voto") || Number(b.key) - Number(a.key));
   if (kind === "artista" && getMeta().artistSort === "alfa") return arr.sort((a,b) => sortName(a.label).localeCompare(sortName(b.label), "it"));
   return arr.sort((a,b) => (/^(Senza|Non indicato)/.test(a.label) - /^(Senza|Non indicato)/.test(b.label)) || (b.items.length - a.items.length) || a.label.localeCompare(b.label, "it"));
 }
-const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita" };
+const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita", voto: "Per voto" };
 const DATE_SUBS = { anno: "Per anno", decennio: "Per decennio" };
 const STAT_TITLES = { ...SUBS, ...DATE_SUBS };
 function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
@@ -1317,8 +1353,9 @@ function renderStats(){
     const gs = groups(sub), max = Math.max(1, ...gs.map(g => g.items.length));
     $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ ${DATE_SUBS[sub] ? SUBS.data : "Statistiche"}</button><h2 style="margin-top:8px">${STAT_TITLES[sub]}</h2>
       ${sub === "artista" ? (() => { const al = getMeta().artistSort === "alfa"; return `<div class="sortseg"><button data-sort="num" class="${al ? "" : "on"}">Per numero di dischi</button><button data-sort="alfa" class="${al ? "on" : ""}">Alfabetico</button></div>`; })() : ""}
+      ${sub === "voto" ? (() => { const r = coll.filter(d => Number(d.rating) > 0); const avg = r.length ? r.reduce((s, d) => s + Number(d.rating), 0) / r.length : 0; return `<div class="stat-mini" style="grid-template-columns:repeat(3,1fr)"><div><b>${r.length ? avg.toFixed(1).replace(".", ",") : "–"}</b>voto medio</div><div><b>${r.length}</b>con voto</div><div><b>${coll.length - r.length}</b>senza voto</div></div>`; })() : ""}
       <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
-      ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
+      ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${sub === "voto" && g.key !== "Senza voto" ? `<span class="rstars vstars">${starsHTML(Number(g.key))}</span>` : esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
         ${open ? `<div class="grp-list">${g.items.map(d => `<button class="grp-item" data-id="${esc(d.id)}"><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}</span></button>`).join("")}</div>` : ""}</div>`; }).join("")}</div>`;
     return;
   }
@@ -1379,7 +1416,7 @@ function stopScanner(){
   if (scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
   const v = $("scanVideo"); try { v.pause(); v.srcObject = null; } catch(e){}
 }
-function closeScanner(){ stopScanner(); $("scanOv").hidden = true; }
+function closeScanner(){ stopScanner(); $("scanOv").hidden = true; if (scanForLink){ dgFor = scanForLink; scanForLink = null; $("dgOv").hidden = false; } }
 $("scanClose").onclick = closeScanner;
 $("scanGo").onclick = () => { const c = $("scanCode").value.replace(/\D/g, ""); if (c.length >= 8) onCode(c); else $("scanMsg").textContent = "Il codice deve avere almeno 8 cifre."; };
 $("scanCode").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("scanGo").click(); } });
@@ -1400,6 +1437,7 @@ async function onCode(code){
   if (scanDone && !$("scanOv").hidden && $("scanMsg").dataset.busy) return;
   code = String(code).replace(/\D/g, "");
   stopScanner();
+  if (scanForLink){ try { navigator.vibrate && navigator.vibrate(60); } catch(e){} $("scanOv").hidden = true; return linkFromBarcode(code); }
   try { navigator.vibrate && navigator.vibrate(60); } catch(e){}
   $("scanMsg").dataset.busy = "1";
   $("scanMsg").textContent = `Codice ${code}: cerco il disco…`;
@@ -1894,8 +1932,12 @@ async function exportBackup(){
   };
 }
 async function exportCSV(){
-  const cols = ["Artista","Album","Anno","Data di pubblicazione","Durata","Genere","Colore vinile","Numero di dischi","Limited","Tracklist","Line up","Produttore","Etichetta","N. catalogo","Valore (€)","Note","Stato"];
-  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", d.releaseDate ? fmtDate(d.releaseDate) : "", d.duration || "", (d.genres || []).join(", "), d.vinyl || "", d.discs || "", d.limited || "", cleanTracks(d.tracks).split("\n").join(" / "), (d.lineup || "").split("\n").join(" / "), d.producer || "", d.discogsInfo?.label || "", d.discogsInfo?.catno || "", (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.notes || "", d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
+  const cols = ["Artista","Album","Anno","Data di pubblicazione","Durata","Voto","Genere","Produttore","Line up","Tracklist","Caratteristiche disco","Note","Etichetta","N. catalogo","Paese","Formato","Link Discogs","Valore (€)","Stato"];
+  const rows = [...state.discs].sort(discSort).map(d => [d.artist, d.album, d.year || "", d.releaseDate ? fmtDate(d.releaseDate) : "", d.duration || "",
+    Number(d.rating) > 0 ? String(d.rating).replace(".", ",") : "", (d.genres || []).join(", "), d.producer || "", (d.lineup || "").split("\n").join(" / "),
+    cleanTracks(d.tracks).split("\n").filter(Boolean).join(" / "), featText(d).split("\n").join(" / "), (d.notes || "").split("\n").join(" / "),
+    d.discogsInfo?.label || "", d.discogsInfo?.catno || "", d.discogsInfo?.country || "", d.discogsInfo?.format || "", d.discogsId ? `https://www.discogs.com/release/${d.discogsId}` : "",
+    (v => v && v.cur === "EUR" ? v.v.toFixed(2).replace(".", ",") : "")(discValue(d)), d.list === "wish" ? "Wishlist" : d.list === "incoming" ? "In arrivo" : "Collezione"]);
   const cell = v => { const t = String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const csv = "﻿" + [cols, ...rows].map(r => r.map(cell).join(";")).join("\r\n");
   return shareOrDownload(new File([csv], `vinili-${new Date().toISOString().slice(0,10)}.csv`, { type: "text/csv" }), "File pronto: aprilo con Excel o Numbers.");
