@@ -422,25 +422,17 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
       <select class="field" id="fGenreSel" style="flex:1"></select>
       <button type="button" class="btn ghost small" id="fGenreMgr">Modifica</button>
     </div>
-    <label for="fVinyl">Colore vinile</label>
-    <input class="field" id="fVinyl" list="vinylList" placeholder="Es. nero, rosso trasparente, splatter…" autocomplete="off">
-    <datalist id="vinylList"><option value="Nero"><option value="Trasparente"><option value="Bianco"><option value="Rosso"><option value="Blu"><option value="Verde"><option value="Giallo"><option value="Arancione"><option value="Viola"><option value="Oro"><option value="Marmorizzato"><option value="Splatter"><option value="Picture disc"></datalist>
-    <div style="display:flex;gap:10px">
-      <div style="flex:0 0 34%"><label for="fDiscs">Numero di dischi</label>
-      <input class="field" id="fDiscs" type="number" inputmode="numeric" min="1" max="99" placeholder="Es. 2"></div>
-      <div style="flex:1"><label for="fLimited">Limited</label>
-      <input class="field" id="fLimited" placeholder="Es. 500 copie, numerata 123/500" autocomplete="off"></div>
-    </div>
-    <label for="fTracks">Tracklist</label>
-    <textarea class="field" id="fTracks" rows="6" placeholder="Un brano per riga"></textarea>
-    <label for="fLineup">Line up</label>
-    <textarea class="field" id="fLineup" rows="4" placeholder="Un musicista per riga, es. Kurt Cobain – voce, chitarra"></textarea>
     <label for="fProducer">Produttore</label>
     <input class="field" id="fProducer" placeholder="Es. Butch Vig" autocomplete="off">
-    <label for="fValue">Valore a mano (€)</label>
-    <input class="field" id="fValue" inputmode="decimal" autocomplete="off" placeholder="Vuoto = prezzo di mercato da Discogs">
+    <label for="fLineup">Line up</label>
+    <textarea class="field" id="fLineup" rows="4" placeholder="Un musicista per riga, es. Kurt Cobain – voce, chitarra"></textarea>
+    <label for="fTracks">Tracklist</label>
+    <textarea class="field" id="fTracks" rows="6" placeholder="Un brano per riga"></textarea>
+    <label for="fFeat">Caratteristiche disco</label>
+    <textarea class="field" id="fFeat" rows="3" placeholder="Es. vinile rosso, 2 dischi, edizione limitata 500 copie"></textarea>
+    <div hidden><input id="fVinyl"><input id="fDiscs"><input id="fLimited"><input id="fValue"></div>
     <label for="fNotes">Note</label>
-    <textarea class="field" id="fNotes" rows="3" placeholder="Dove l'hai preso, ricordi, impressioni…"></textarea>
+    <textarea class="field" id="fNotes" rows="3" placeholder="Note"></textarea>
     <label>Colore della costina</label>
     <div class="swatches" id="fSw"></div>
     <div class="err" id="fErr"></div>
@@ -504,7 +496,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.53";
+const APP_VERSION = "1.54";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1119,7 +1111,6 @@ async function fetchMarket(id){
   return m;
 }
 function discValue(d){
-  if (typeof d.valueManual === "number") return { v: d.valueManual, cur: "EUR", src: "manual" };
   const m = d.market; if (!m) return null;
   const c = d.condition || DEF_COND;
   if (m.sugg && typeof m.sugg[c] === "number"){
@@ -1153,7 +1144,7 @@ async function drawValue(id, auto){
     if (val.src === "lowest" && !dgToken()) h += `<div class="vsub">Inserisci il codice Discogs dal menu per avere il prezzo in base alle condizioni.</div>`;
   } else if (m) h += `<div class="vsub">${m.missing ? "Discogs non trova più questa stampa: prova a ricollegarla." : "Su Discogs al momento non ci sono prezzi per questa stampa."}</div>`;
   else h += `<div class="vsub" id="vWait">${navigator.onLine === false ? "Sei offline: il prezzo arriverà quando sarai connesso." : "Chiedo il prezzo a Discogs…"}</div>`;
-  if (m && m.sugg && typeof d.valueManual !== "number") h += `<select class="field" id="vCond" aria-label="Condizioni del disco">${CONDS.filter(c => typeof m.sugg[c[0]] === "number").map(c => `<option value="${esc(c[0])}"${c[0] === (d.condition || DEF_COND) ? " selected" : ""}>${esc(c[1])} · ${money(m.sugg[c[0]], m.scur)}</option>`).join("")}</select>`;
+  if (m && m.sugg) h += `<select class="field" id="vCond" aria-label="Condizioni del disco">${CONDS.filter(c => typeof m.sugg[c[0]] === "number").map(c => `<option value="${esc(c[0])}"${c[0] === (d.condition || DEF_COND) ? " selected" : ""}>${esc(c[1])} · ${money(m.sugg[c[0]], m.scur)}</option>`).join("")}</select>`;
   if (m) h += `<div class="vsub">Aggiornato il ${new Date(m.at).toLocaleDateString("it-IT")}.</div>`;
   h += `<div class="vpress">${pressLine(d.discogsInfo) || "Stampa collegata su Discogs"}</div>
     <div class="vbtns grid2"><button type="button" class="btn ghost small" id="vRefresh">Aggiorna prezzo</button><a class="btn ghost small" href="https://www.discogs.com/release/${encodeURIComponent(d.discogsId)}" target="_blank" rel="noopener" style="text-decoration:none">Vedi su Discogs</a><button type="button" class="btn ghost small" id="vLink">Cambia stampa</button><button type="button" class="btn ghost small" id="vUnlink">Annulla link</button></div>`;
@@ -1252,6 +1243,15 @@ function valueTotals(){
   return { tot, n, other, linked: coll.filter(d => d.discogsId).length, all: coll.length };
 }
 
+function featText(d){
+  if (!d) return "";
+  if (d.vinylNotes) return d.vinylNotes;
+  const p = [];
+  if (d.vinyl) p.push("Vinile " + d.vinyl.trim().replace(/^vinile\s+/i, "").toLowerCase());
+  if (d.discs) p.push(d.discs === 1 ? "1 disco" : d.discs + " dischi");
+  if (d.limited) p.push(d.limited);
+  return p.join(", ");
+}
 /* ---------- Statistiche ---------- */
 function groups(kind){
   const m = new Map();
@@ -1447,7 +1447,7 @@ function applyLookup(code, info){
   if (info && info.discogsId) state.formDiscogs = { id: info.discogsId, info: info.discogsInfo || null };
   if (!info){ $("fScanHint").textContent = `Codice ${code}: non ho trovato il disco. Compila artista e album e usa «Cerca online».`; return; }
   const set = (id, v) => { if (v && !$(id).value.trim()) $(id).value = v; };
-  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); set("fVinyl", info.vinyl); if (info.discs && !$("fDiscs").value) $("fDiscs").value = info.discs; set("fProducer", info.producer); set("fDuration", info.duration);
+  set("fArtist", info.artist); set("fAlbum", info.album); set("fYear", info.year); if (!$("fFeat").value.trim()){ const ft = featText({ vinyl: info.vinyl, discs: info.discs }); if (ft) $("fFeat").value = ft; } set("fProducer", info.producer); set("fDuration", info.duration);
   if (info.tracks && !$("fTracks").value.trim()) $("fTracks").value = cleanTracks(info.tracks);
   if (info.genres && info.genres.length && !state.fgenres.length){ state.fgenres = info.genres.map(g => allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g); drawGenres(); }
   if (info.cover && !state.pending) state.pending = { type: "url", url: info.cover };
@@ -1503,18 +1503,16 @@ async function openDetail(id){
         ${d.rating ? `<div class="yr" style="letter-spacing:2px;font-size:17px">${starsHTML(d.rating)}</div>` : ""}
         <div class="chips">
           ${status ? `<span class="chip">${status}</span>` : ""}
-          ${d.discs ? `<span class="chip">${d.discs === 1 ? "1 disco" : d.discs + " dischi"}</span>` : ""}
-          ${d.vinyl ? `<span class="chip vin" style="--vc:${vinylDot(d.vinyl)}"><i></i>${esc(d.vinyl)}</span>` : ""}
           ${(d.genres || []).map(g => `<button class="chip tag" data-g="${esc(g)}">${esc(g)}</button>`).join("")}
         </div>
       </div>
     </div>
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
-    ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
-    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
     ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${esc(d.producer)}</div></div>` : ""}
-    ${d.limited ? `<div class="dsec"><h4>Limited</h4><div class="box">${esc(d.limited)}</div></div>` : ""}
+    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
+    ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
+    ${featText(d) ? `<div class="dsec"><h4>Caratteristiche disco</h4><div class="box" style="white-space:pre-line">${esc(featText(d))}</div></div>` : ""}
     ${d.notes ? `<div class="dsec"><h4>Note</h4><div class="box">${esc(d.notes)}</div></div>` : ""}
     <div class="dsec"><h4>Valore di mercato</h4><div class="box vbox" id="dValue"></div></div>
     <div class="actions">
@@ -1656,7 +1654,8 @@ function openForm(d, list){
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
   state.formBarcode = d?.barcode || null; state.formDiscogs = null;
-  $("fValue").value = typeof d?.valueManual === "number" ? String(d.valueManual).replace(".", ",") : "";
+  $("fValue").value = "";
+  $("fFeat").value = featText(d);
   $("fScan").hidden = !!d;
   drawGenres(); drawSwatches(); drawFormCover();
   $("formOv").hidden = false; $("form").scrollTop = 0;
@@ -1756,9 +1755,9 @@ $("form").addEventListener("submit", async e => {
   if (prev && !(await askConfirm("Salvare le modifiche?", `Aggiorno «${album}».`, "Salva"))) return;
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, duration: normDuration($("fDuration").value), genres: state.fgenres.length ? [...state.fgenres] : null,
-    vinyl: $("fVinyl").value.trim() || null,
+    vinyl: null, vinylNotes: $("fFeat").value.trim() || null,
     lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
-    discs: parseInt($("fDiscs").value, 10) > 0 ? parseInt($("fDiscs").value, 10) : null, limited: $("fLimited").value.trim() || null,
+    discs: null, limited: null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
     barcode: state.formBarcode || prev?.barcode || null,
     valueManual: (v => { const n = parseFloat(String(v).replace(/[€\s]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return n >= 0 ? Math.round(n * 100) / 100 : null; })($("fValue").value),
