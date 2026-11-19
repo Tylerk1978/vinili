@@ -510,7 +510,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.71";
+const APP_VERSION = "1.72";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -1244,7 +1244,10 @@ async function linkFromBarcode(code){
   const id = scanForLink; scanForLink = null;
   dgFor = id; $("dgOv").hidden = false; $("dgPick").innerHTML = `<p class="vsub" style="margin-top:12px">Codice ${esc(code)}: cerco su Discogs…</p>`;
   let res = [];
-  try { const j = await dgGet(`/database/search?barcode=${encodeURIComponent(code)}&type=release&per_page=50`); res = j.results || []; }
+  try {
+    const variants = [...new Set([code, code.length === 13 && code[0] === "0" ? code.slice(1) : null, code.length === 12 ? "0" + code : null].filter(Boolean))];
+    for (const c of variants){ const j = await dgGet(`/database/search?barcode=${encodeURIComponent(c)}&type=release&per_page=50`); res = j.results || []; if (res.length) break; }
+  }
   catch(e){ $("dgPick").innerHTML = ""; $("dgLinkErr").textContent = e.code === "rate" ? "Discogs è occupato: riprova tra un minuto." : "Non riesco a contattare Discogs. Sei connesso?"; return; }
   const vinyl = res.filter(x => (x.format || []).some(f => /vinyl|lp/i.test(f)));
   const list = vinyl.length ? vinyl : [];
@@ -1388,6 +1391,29 @@ function loadZXing(){
   return zxingP || (zxingP = new Promise((res, rej) => { const s = document.createElement("script"); s.src = ZXING_URL; s.onload = () => res(window.ZXing); s.onerror = () => { zxingP = null; rej(new Error("zxing")); }; document.head.appendChild(s); }));
 }
 function zxHints(Z){ const h = new Map(); h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_E]); h.set(Z.DecodeHintType.TRY_HARDER, true); return h; }
+function zxDecodeCanvas(Z, cv){
+  try {
+    const r = new Z.MultiFormatReader(); r.setHints(zxHints(Z));
+    const src = new Z.HTMLCanvasElementLuminanceSource(cv);
+    try { return r.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(src))).getText(); } catch(e){}
+    try { return r.decode(new Z.BinaryBitmap(new Z.GlobalHistogramBinarizer(src))).getText(); } catch(e){}
+  } catch(e){}
+  return null;
+}
+async function decodePhoto(f){
+  const Z = await loadZXing();
+  const img = await new Promise((res, rej) => { const u = URL.createObjectURL(f), im = new Image(); im.onload = () => { res(im); setTimeout(() => URL.revokeObjectURL(u), 1000); }; im.onerror = rej; im.src = u; });
+  const W = img.naturalWidth, H = img.naturalHeight, cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
+  const crops = [[0, 0, 1, 1], [0, .25, 1, .5], [0, .1, 1, .4], [0, .5, 1, .4], [.1, .3, .8, .4]];
+  for (const maxSide of [1400, 2200, 900]) for (const rot of [0, 90]) for (const [x, y, w, hh] of crops){
+    const sx = x * W, sy = y * H, sw = w * W, sh = hh * H, sc = Math.min(1, maxSide / Math.max(sw, sh));
+    if (rot){ cv.width = Math.round(sh * sc); cv.height = Math.round(sw * sc); cx.save(); cx.translate(cv.width, 0); cx.rotate(Math.PI / 2); cx.drawImage(img, sx, sy, sw, sh, 0, 0, sw * sc, sh * sc); cx.restore(); }
+    else { cv.width = Math.round(sw * sc); cv.height = Math.round(sh * sc); cx.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height); }
+    const c = zxDecodeCanvas(Z, cv); if (c) return c;
+    await new Promise(r => setTimeout(r, 0));
+  }
+  return null;
+}
 async function openScanner(){
   scanDone = false;
   $("scanOv").hidden = false; $("scanCode").value = ""; $("scanMsg").textContent = "Avvio la fotocamera…";
@@ -1401,13 +1427,34 @@ async function openScanner(){
       const tick = async () => { if (scanDone || $("scanOv").hidden) return; try { const r = await det.detect(v); if (r && r[0]) return onCode(r[0].rawValue); } catch(e){} scanLoop = setTimeout(tick, 250); };
       tick();
     } else {
-      const Z = await loadZXing();
-      scanReader = new Z.BrowserMultiFormatReader(zxHints(Z));
-      await scanReader.decodeFromConstraints({ video: { facingMode: "environment" }, audio: false }, $("scanVideo"), (res) => { if (res && !scanDone) onCode(res.getText()); });
+      $("scanMsg").textContent = "Carico il lettore di codici…";
+      const Z = await Promise.race([loadZXing(), new Promise((_, rej) => setTimeout(() => rej(new Error("zxing-timeout")), 15000))]);
+      $("scanMsg").textContent = "Avvio la fotocamera…";
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      try { const tr = scanStream.getVideoTracks()[0]; const caps = tr.getCapabilities ? tr.getCapabilities() : {}; if (caps.focusMode && caps.focusMode.includes("continuous")) await tr.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch(e){}
+      const v = $("scanVideo"); v.srcObject = scanStream; await v.play();
       $("scanMsg").textContent = "";
+      const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
+      let n = 0;
+      const tick = () => {
+        if (scanDone || $("scanOv").hidden) return;
+        const vw = v.videoWidth, vh = v.videoHeight;
+        if (vw && vh){
+          const vert = (n++ % 3) === 2;            // ogni tanto prova anche il codice in verticale
+          const bw = vert ? vh * 0.45 : vw * 0.9, bh = vert ? vh * 0.9 : vh * 0.45;
+          const sx = (vw - (vert ? bw : bw)) / 2, sy = (vh - bh) / 2;
+          const scale = Math.min(1, 1280 / Math.max(bw, bh));
+          if (vert){ cv.width = Math.round(bh * scale); cv.height = Math.round(bw * scale); cx.save(); cx.translate(cv.width, 0); cx.rotate(Math.PI / 2); cx.drawImage(v, sx, sy, bw, bh, 0, 0, bw * scale, bh * scale); cx.restore(); }
+          else { cv.width = Math.round(bw * scale); cv.height = Math.round(bh * scale); cx.drawImage(v, sx, sy, bw, bh, 0, 0, cv.width, cv.height); }
+          const code = zxDecodeCanvas(Z, cv);
+          if (code) return onCode(code);
+        }
+        scanLoop = setTimeout(tick, 120);
+      };
+      tick();
     }
   } catch(e){
-    $("scanMsg").textContent = "Non riesco ad aprire la fotocamera. Usa «Scatta una foto» oppure scrivi il codice.";
+    $("scanMsg").textContent = e && /zxing/.test(e.message || "") ? "Non riesco a caricare il lettore di codici: serve internet la prima volta. Puoi scrivere il codice a mano." : "Non riesco ad aprire la fotocamera. Usa «Scatta una foto» oppure scrivi il codice.";
   }
 }
 function stopScanner(){
@@ -1428,7 +1475,7 @@ $("barcodePhoto").addEventListener("change", async e => {
   try {
     let code = null;
     if ("BarcodeDetector" in window){ const img = await createImageBitmap(f); const r = await new BarcodeDetector({ formats: ["ean_13","upc_a","ean_8","upc_e"] }).detect(img); code = r && r[0] && r[0].rawValue; }
-    if (!code){ const Z = await loadZXing(); const res = await new Z.BrowserMultiFormatReader(zxHints(Z)).decodeFromImageUrl(url); code = res && res.getText(); }
+    if (!code) code = await decodePhoto(f);
     if (code) onCode(code); else throw 0;
   } catch(err){ $("scanMsg").textContent = "Non riesco a leggere il codice: riprova più vicino e con più luce, oppure scrivilo."; }
   finally { URL.revokeObjectURL(url); }
