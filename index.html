@@ -191,7 +191,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 @media (max-width:420px){ .dcover{width:155px;height:155px} }
 .dinfo{min-width:0}
 .dinfo .art{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--muted);font-size:16px;text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.45);text-underline-offset:4px}
-.dinfo .yr{color:var(--muted);font-size:14px;margin-top:6px}
+.dinfo .yr{color:var(--muted);font-size:calc(14px * var(--ts, 1));margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .sortseg{display:inline-flex;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;margin:6px 0 2px}
 .sortseg button{appearance:none;border:0;background:none;color:var(--muted);font:600 13px Inter,sans-serif;padding:7px 14px;border-radius:999px;cursor:pointer}
@@ -201,10 +201,10 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .chip.vin{display:inline-flex;align-items:center;gap:6px}
 .chip.vin i{width:10px;height:10px;border-radius:50%;background:var(--vc);border:1px solid rgba(255,255,255,.3)}
 .dsec{margin-top:20px}
-.dsec h4{font-size:12px;color:var(--muted);font-weight:500;margin:0 0 6px}
-.dsec .box{background:var(--field);border-radius:12px;padding:10px 13px;font-size:11.5px;line-height:1.5;white-space:pre-wrap;text-align:justify}
-.tracks{margin:0;padding:9px 13px 9px 36px;background:var(--field);border-radius:12px;font-size:11.5px;line-height:1.6}
-.tracks li::marker{color:var(--muted);font-size:11px}
+.dsec h4{font-size:calc(12px * var(--ts, 1));color:var(--muted);font-weight:500;margin:0 0 6px}
+.dsec .box{background:var(--field);border-radius:12px;padding:10px 13px;font-size:calc(11.5px * var(--ts, 1));line-height:1.5;white-space:pre-wrap;text-align:justify}
+.tracks{margin:0;padding:9px 13px 9px 36px;background:var(--field);border-radius:12px;font-size:calc(11.5px * var(--ts, 1));line-height:1.6}
+.tracks li::marker{color:var(--muted);font-size:calc(11px * var(--ts, 1))}
 .tracks li.side{list-style:none;margin-left:-24px;color:var(--accent);font-weight:600;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-top:6px}
 .bigact{width:100%;margin-top:16px}
 .menu .item{display:block;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:14px 16px;margin-top:10px;cursor:pointer;font-size:15px;font-weight:600}
@@ -301,6 +301,11 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .rrow .rtxt b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rrow .rtxt span{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rrow .chev{font-size:18px;color:var(--muted)}
+.tsrow{display:flex;align-items:center;gap:10px;margin-top:14px}
+.tsrow input[type=range]{flex:1;accent-color:var(--accent);height:28px}
+.tsrow .btn{min-width:46px;padding:8px 0}
+.tsval{text-align:center;font:600 22px Georgia,serif;color:var(--accent);margin-top:10px}
+.tsprev{margin-top:12px;background:var(--field);border-radius:12px;padding:10px 13px;font-size:calc(11.5px * var(--ts, 1));line-height:1.5}
 </style>
 </head>
 <body>
@@ -498,7 +503,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.56";
+const APP_VERSION = "1.58";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
@@ -2012,7 +2017,25 @@ function backupLabelDue(m){
   return new Date().getHours() >= 20 || Date.now() - new Date(m.lastBackupAt).getTime() >= 2 * 86400000;
 }
 function snoozeTomorrow(){ const d = new Date(); d.setHours(24, 0, 0, 0); return d.toISOString(); }
-const SNAP_UNIT = "dischi", SNAP_KEEP_META = ["lastBackupAt", "snoozeUntil", "firstSeenAt", "discogsToken", "viewMode"];
+const SNAP_UNIT = "dischi", SNAP_KEEP_META = ["lastBackupAt", "snoozeUntil", "firstSeenAt", "discogsToken", "viewMode", "textScale"];
+function applyTextScale(){ const s = Number(getMeta().textScale) || 100; document.documentElement.style.setProperty("--ts", String(s / 100)); }
+function openTextSize(){
+  const cur = Number(getMeta().textScale) || 100;
+  $("menu").innerHTML = `
+    <h3>Dimensione testo</h3>
+    <p>Vale per il testo nelle schede dei dischi: genere, produttore, line up, tracklist, caratteristiche e note.</p>
+    <div class="tsval" id="tsVal">${cur}%</div>
+    <div class="tsrow"><button type="button" class="btn ghost small" id="tsMinus" aria-label="Diminuisci">A−</button><input type="range" id="tsRange" min="80" max="150" step="5" value="${cur}" aria-label="Dimensione testo"><button type="button" class="btn ghost small" id="tsPlus" aria-label="Aumenta">A+</button></div>
+    <div class="tsprev">Smells Like Teen Spirit · In Bloom · Come as You Are<br>Prodotto da Butch Vig</div>
+    <div class="actions"><button type="button" class="btn ghost" id="tsReset">Normale</button><button type="button" class="btn" id="tsOk">Fatto</button></div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  const set = v => { v = Math.max(80, Math.min(150, Math.round(v / 5) * 5)); $("tsRange").value = v; $("tsVal").textContent = v + "%"; setMeta("textScale", v === 100 ? null : v); applyTextScale(); };
+  $("tsRange").oninput = e => set(Number(e.target.value));
+  $("tsMinus").onclick = () => set(Number($("tsRange").value) - 5);
+  $("tsPlus").onclick = () => set(Number($("tsRange").value) + 5);
+  $("tsReset").onclick = () => set(100);
+  $("tsOk").onclick = () => { $("menuOv").hidden = true; };
+}
 function snapUnits(n){ return n + " " + (n === 1 ? "disco" : SNAP_UNIT); }
 function snapCount(data){ try { return (JSON.parse(data[KEY] || "[]") || []).filter(d => !d.list).length; } catch(e){ return 0; } }
 function backupBannerText(m){
@@ -2046,8 +2069,7 @@ function openMenu(msg){
     <button class="item" id="mSnap">Ripristina una copia automatica<small>L'app salva da sola una copia al giorno e tiene le ultime 7</small></button>
     <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
     <button class="item" id="mUnlinked">Dischi da collegare a Discogs<small>${(n => n ? `${n === 1 ? "1 disco" : n + " dischi"} in collezione senza stampa Discogs` : "Tutti i dischi in collezione sono collegati")(collection().filter(d => !d.discogsId).length)}</small></button>
-    <button class="item" id="mOffline">Salva le copertine per l'uso offline<small>${state.discs.filter(d => d.coverUrl && !d.coverLocal).length} copertine online · serve internet</small></button>
-    <button class="item" id="mPhotos">Scarica le foto degli artisti<small>Foto ufficiali da Deezer · non tocca le foto scelte da te · serve internet</small></button>
+    <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
     <div class="actions"><button class="btn ghost" id="mClose">Chiudi</button></div>
@@ -2056,10 +2078,10 @@ function openMenu(msg){
   $("mClose").onclick = () => { $("menuOv").hidden = true; };
   $("mExport").onclick = () => exportBackup();
   $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
-  $("mPhotos").onclick = openArtistPhotosMenu;
   $("mUnlinked").onclick = showUnlinked;
   $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
   $("mSnap").onclick = openSnapshots;
+  $("mText").onclick = openTextSize;
   $("mDiscogs").onclick = () => {
     const cur = getMeta().discogsToken || "";
     $("menu").innerHTML = `<h3>Discogs</h3>
@@ -2077,20 +2099,6 @@ function openMenu(msg){
       catch(e){ if (!navigator.onLine){ setMeta("discogsToken", t); openMenu("Codice salvato: lo verificherò alla prima scansione."); } else $("dgErr").textContent = "Il codice non funziona: controlla di averlo copiato tutto."; }
     };
   };
-  $("mOffline").onclick = async () => {
-    if (!navigator.onLine){ $("mErr").textContent = "Serve la connessione a internet."; return; }
-    const todo = state.discs.filter(d => d.coverUrl && !d.coverLocal);
-    if (!todo.length){ $("mOk").textContent = "Non ci sono copertine da salvare."; return; }
-    if (!(await askConfirm("Salvare le copertine?", `Scarico ${todo.length} copertine sul telefono, così le vedi anche senza internet. Ci vuole qualche minuto: tieni l'app aperta.`, "Scarica"))) return;
-    let done = 0, ok = 0;
-    $("mOffline").disabled = true;
-    for (const d of todo){
-      await new Promise(res => { const im = new Image(); const t = setTimeout(res, 8000); im.onload = () => { ok++; clearTimeout(t); res(); }; im.onerror = () => { clearTimeout(t); res(); }; im.src = d.coverUrl; });
-      done++; $("mOk").textContent = `Copertine: ${done} di ${todo.length}…`;
-    }
-    $("mOk").textContent = `Fatto: ${ok} copertine salvate${ok < todo.length ? `, ${todo.length - ok} non raggiungibili` : ""}.`;
-    $("mOffline").disabled = false;
-  };
 }
 $("menuBtn").onclick = () => openMenu();
 $("menuOv").addEventListener("click", e => { if (e.target.id === "menuOv") $("menuOv").hidden = true; });
@@ -2106,6 +2114,7 @@ state.discs = load();
 { let ch = false; state.discs = state.discs.map(d => { if (!d.tracks) return d; const c = cleanTracks(d.tracks) || null; if (c !== d.tracks){ ch = true; return { ...d, tracks: c }; } return d; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
 state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
+applyTextScale();
 showView((location.hash || "").slice(1), false);
 snapDaily();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible"){ snapDaily(); try { $("homeBanner").innerHTML = bannerHTML(); } catch(e){} } });
