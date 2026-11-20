@@ -248,6 +248,11 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .drow .rstars{flex:0 0 auto;color:var(--accent);font-size:13px;letter-spacing:1px;padding-right:4px;white-space:nowrap}
 .drow .rstars .sg{display:inline}
 .sg{background:linear-gradient(90deg,var(--accent) var(--f),#5d4c39 var(--f));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.stars{display:flex;align-items:center;gap:2px}
+.stars .star{position:relative;display:inline-block;font-size:30px;line-height:1;width:1em;text-align:center}
+.stars .star button{position:absolute;top:0;bottom:0;width:50%;background:none;border:0;padding:0;cursor:pointer}
+.stars .star button.l{left:0}.stars .star button.r{right:0}
+.stars .val{margin-left:10px;color:var(--muted);font-size:14px;min-width:30px}
 .drow span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .aphoto-wrap{display:flex;flex-direction:column;align-items:center;margin:24px 0 4px}
 .aphoto{width:96%;height:auto;aspect-ratio:3/2;border-radius:14px;border:1px dashed #6b5132;background:#1d1711;color:var(--muted);padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.4);font-size:13px;line-height:1.6}
@@ -427,8 +432,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label for="fDuration">Durata</label>
     <input class="field" id="fDuration" type="text" autocomplete="off" placeholder="Es. 45:32 oppure 1:12:05">
-    <label for="fRating">Voto</label>
-    <select class="field" id="fRating"><option value="">Nessun voto</option><option value="0.5">0,5 stelle</option><option value="1">1 stella</option><option value="1.5">1,5 stelle</option><option value="2">2 stelle</option><option value="2.5">2,5 stelle</option><option value="3">3 stelle</option><option value="3.5">3,5 stelle</option><option value="4">4 stelle</option><option value="4.5">4,5 stelle</option><option value="5">5 stelle</option></select>
+    <label>Voto</label>
+    <div class="stars" id="fStars"></div>
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -510,10 +515,10 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.72";
+const APP_VERSION = "1.73";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
-const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null };
+const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -1582,6 +1587,16 @@ function cleanTracks(t){
   return String(t || "").split("\n").map(l => l.trim()).filter(l => l && !SIDE_RE.test(l))
     .map(l => l.replace(/^(?:[A-H]\d{1,2}[\.\)\-:]?|[A-H][\.\)]|\d{1,3}[\.\)\-:])\s+(?=\S)/, "").trim()).filter(Boolean).join("\n");
 }
+// Voto nel modulo: tocca la metà sinistra di una stella per la mezza stella, la destra per quella intera; ritocca per togliere
+const fmtStar = r => String(r).replace(".", ",");
+function drawStars(){
+  const r = state.rating || 0;
+  $("fStars").innerHTML = [1,2,3,4,5].map(i => {
+    const f = Math.max(0, Math.min(1, r - (i - 1))) * 100;
+    return `<span class="star"><span class="sg" style="--f:${f}%">★</span><button type="button" class="l" data-r="${i - 0.5}" aria-label="${fmtStar(i - 0.5)} stelle"></button><button type="button" class="r" data-r="${i}" aria-label="${i} stelle"></button></span>`;
+  }).join("") + `<span class="val">${r ? fmtStar(r) : ""}</span>`;
+}
+$("fStars").addEventListener("click", e => { const b = e.target.closest("button[data-r]"); if (!b) return; const r = Number(b.dataset.r); state.rating = state.rating === r ? 0 : r; drawStars(); });
 // Stelle con riempimento parziale (mezza stella disegnata, non "½")
 function starsHTML(r){
   return [1,2,3,4,5].map(i => { const f = Math.max(0, Math.min(1, r - (i - 1))) * 100; return `<span class="sg" style="--f:${f}%">★</span>`; }).join("");
@@ -1759,7 +1774,7 @@ function openForm(d, list){
   state.formBarcode = d?.barcode || null; state.formDiscogs = null;
   $("fValue").value = "";
   $("fFeat").value = featText(d);
-  $("fRating").value = Number(d?.rating) > 0 ? String(Math.round(Number(d.rating) * 2) / 2) : "";
+  state.rating = Number(d?.rating) > 0 ? Math.round(Number(d.rating) * 2) / 2 : 0; drawStars();
   $("fScan").hidden = !!d;
   drawGenres(); drawSwatches(); drawFormCover();
   $("formOv").hidden = false; $("form").scrollTop = 0;
@@ -1875,7 +1890,7 @@ $("form").addEventListener("submit", async e => {
   const id = prev ? prev.id : "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   const data = { ...(prev || {}), id, artist, album, year, releaseDate: rd.date, duration: normDuration($("fDuration").value), genres: state.fgenres.length ? [...state.fgenres] : null,
     vinyl: null, vinylNotes: $("fFeat").value.trim() || null,
-    rating: parseFloat($("fRating").value) > 0 ? parseFloat($("fRating").value) : null,
+    rating: state.rating > 0 ? state.rating : null,
     lineup: $("fLineup").value.trim() || null, producer: $("fProducer").value.trim() || null,
     discs: null, limited: null,
     tracks: cleanTracks($("fTracks").value) || null, notes: $("fNotes").value.trim() || null, color: state.color || null,
