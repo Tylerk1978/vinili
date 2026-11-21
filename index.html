@@ -428,6 +428,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <datalist id="artistList"></datalist>
     <label for="fAlbum">Titolo dell'album</label>
     <input class="field" id="fAlbum" autocomplete="off">
+    <button type="button" class="btn ghost small" id="fWiki" style="margin-top:12px">Completa da Wikipedia</button>
+    <div class="hint" id="fWikiMsg">Aggiunge data, durata, produttore e line up solo dove mancano.</div>
     <label for="fYear">Data di pubblicazione</label>
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label for="fDuration">Durata</label>
@@ -515,7 +517,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.74";
+const APP_VERSION = "1.75";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1636,6 +1638,7 @@ function drawStars(){
     return `<span class="star"><span class="sg" style="--f:${f}%">★</span><button type="button" class="l" data-r="${i - 0.5}" aria-label="${fmtStar(i - 0.5)} stelle"></button><button type="button" class="r" data-r="${i}" aria-label="${i} stelle"></button></span>`;
   }).join("") + `<span class="val">${r ? fmtStar(r) : ""}</span>`;
 }
+$("fWiki").addEventListener("click", wikiFillForm);
 $("fStars").addEventListener("click", e => { const b = e.target.closest("button[data-r]"); if (!b) return; const r = Number(b.dataset.r); state.rating = state.rating === r ? 0 : r; drawStars(); });
 // Stelle con riempimento parziale (mezza stella disegnata, non "½")
 function starsHTML(r){
@@ -1808,6 +1811,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtistAc").hidden = true;
+  if ($("fWikiMsg")) $("fWikiMsg").textContent = "Aggiunge data, durata, produttore e line up solo dove mancano.";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || ""); $("fDuration").value = d?.duration || "";
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
@@ -1896,6 +1900,195 @@ function normDuration(v){
   m = v.match(/^(\d{1,3})[:.,'](\d{2})"?$/); if (m) return fmt(+m[1] * 60 + +m[2]);
   m = v.match(/^(\d{1,3})\s*(min|minuti|')?$/i); if (m) return fmt(+m[1] * 60);
   return v.slice(0, 40);
+}
+/* ---------- Dati del disco da Wikipedia (data, durata, produttore, line up) ---------- */
+const WK_MONTHS = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,
+  gennaio:1,febbraio:2,marzo:3,aprile:4,maggio:5,giugno:6,luglio:7,agosto:8,settembre:9,ottobre:10,novembre:11,dicembre:12 };
+// Trova il template d'apertura (es. "Infobox album") e restituisce i suoi parametri
+function wkInfobox(wt){
+  const m = wt.match(/\{\{\s*(Infobox album|Album)\s*(\||\n)/i); if (!m) return null;
+  let i = m.index + 2, depth = 1, start = i;
+  for (; i < wt.length - 1 && depth; i++){
+    if (wt[i] === "{" && wt[i+1] === "{"){ depth++; i++; } else if (wt[i] === "}" && wt[i+1] === "}"){ depth--; i++; }
+  }
+  const body = wt.slice(start, i - 2), parts = []; let cur = "", d = 0;
+  for (let j = 0; j < body.length; j++){
+    const c = body[j], n = body[j+1];
+    if ((c === "{" && n === "{") || (c === "[" && n === "[")){ d++; cur += c + n; j++; continue; }
+    if ((c === "}" && n === "}") || (c === "]" && n === "]")){ d--; cur += c + n; j++; continue; }
+    if (c === "|" && d === 0){ parts.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  parts.push(cur);
+  const out = {};
+  for (const p of parts.slice(1)){ const k = p.indexOf("="); if (k > 0) out[p.slice(0, k).trim().toLowerCase()] = p.slice(k + 1).trim(); }
+  return out;
+}
+// Ripulisce il testo wiki: tiene date e durate dei template, toglie note e link
+function wkClean(v){
+  v = String(v || "").replace(/<!--[\s\S]*?-->/g, "").replace(/<ref[^>]*\/>/gi, "").replace(/<ref[\s\S]*?<\/ref>/gi, "");
+  for (let guard = 0; guard < 30 && /\{\{[^{}]*\}\}/.test(v); guard++){
+    v = v.replace(/\{\{([^{}]*)\}\}/g, (all, inner) => {
+      const ps = inner.split("|").map(x => x.trim()), name = ps[0].toLowerCase();
+      const named = Object.fromEntries(ps.slice(1).filter(x => x.includes("=")).map(x => [x.split("=")[0].trim().toLowerCase(), x.split("=").slice(1).join("=").trim()]));
+      const pos = ps.slice(1).filter(x => !x.includes("="));
+      if (/^(start date|release date|dts|data|start-date)/.test(name)){
+        const [y, mo, d] = pos.map(Number); return y && mo && d ? `§${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}§` : (pos.join(" "));
+      }
+      if (/^(duration|durata)$/.test(name)){
+        const h = +(named.h || 0), m = +(named.m || pos[pos.length === 3 ? 1 : 0] || 0), s = +(named.s || pos[pos.length === 3 ? 2 : 1] || 0);
+        const hh = +(named.h || (pos.length === 3 ? pos[0] : 0));
+        const tot = (hh || h) * 3600 + m * 60 + s; return tot ? `${Math.floor(tot / 60)}:${String(tot % 60).padStart(2,"0")}` : "";
+      }
+      if (/^(hlist|flatlist|plainlist|ubl|unbulleted list|nowrap|small|nobr|lang)$/.test(name)) return (name === "lang" ? pos.slice(1) : pos).join("\n");
+      return "";
+    });
+  }
+  v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[https?:\/\/\S+\s([^\]]*)\]/g, "$1").replace(/'{2,}/g, "")
+       .replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/^\s*\*+\s*/gm, "");
+  return v.split("\n").map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
+}
+function wkDate(v){
+  const s = wkClean(v);
+  let m = s.match(/§(\d{4})-(\d{2})-(\d{2})§/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  const t = s.replace(/§/g, "").toLowerCase();
+  m = t.match(/(\d{1,2})\s+([a-zà-ù]+)\s+(\d{4})/); if (m && WK_MONTHS[m[2]]) return `${m[3]}-${String(WK_MONTHS[m[2]]).padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  m = t.match(/([a-z]+)\s+(\d{1,2}),?\s+(\d{4})/); if (m && WK_MONTHS[m[1]]) return `${m[3]}-${String(WK_MONTHS[m[1]]).padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+  return null;
+}
+function wkDuration(v){
+  const s = wkClean(v).replace(/§/g, "");
+  let m = s.match(/(\d{1,2}):(\d{2}):(\d{2})/); if (m) return normDuration(`${m[1]}:${m[2]}:${m[3]}`);
+  m = s.match(/(\d{1,3}):(\d{2})/); if (m) return normDuration(`${m[1]}:${m[2]}`);
+  m = s.match(/(\d{1,3})\s*min(?:uti)?\s*(?::|e|,)?\s*(\d{1,2})\s*s/i); if (m) return normDuration(`${m[1]}:${m[2].padStart(2,"0")}`);
+  return null;
+}
+function wkPeople(v){ return wkClean(v).replace(/§[^§]*§/g, "").split(/\n|,\s*/).map(x => x.replace(/\(.*?\)/g, "").trim()).filter(x => x && x.length < 60).filter((x, i, a) => a.indexOf(x) === i).join(", "); }
+// Formazione / Personnel: solo i musicisti, niente sezioni di produzione o grafica
+function wkLineup(wt, lang){
+  const heads = lang === "it" ? /^==\s*(Formazione|Musicisti|Crediti|Personale)\s*==\s*$/im : /^==\s*(Personnel|Credits and personnel|Credits|Musicians|Band members)\s*==\s*$/im;
+  const m = wt.match(heads); if (!m) return null;
+  const rest = wt.slice(m.index + m[0].length), end = rest.search(/^==[^=]/m), sec = end >= 0 ? rest.slice(0, end) : rest;
+  const SKIP = /produc|technical|technician|design|artwork|art direction|packaging|engineer|mix|master|photograph|management|produzione|tecnic|grafica|copertina|fotograf|ingegner/i;
+  let skip = false; const out = [];
+  for (const line of sec.split("\n")){
+    const h = line.match(/^={3,}\s*(.*?)\s*={3,}\s*$/) || line.match(/^;\s*(.+)$/) || line.match(/^'''([^']+)'''\s*:?\s*$/);
+    if (h){ skip = SKIP.test(h[1]); continue; }
+    if (skip || !/^\s*\*/.test(line)) continue;
+    const t = wkClean(line.replace(/^\s*\*+/, "")).replace(/§[^§]*§/g, "").replace(/\s*[-–—:]\s+/, " – ").trim();
+    if (!t || SKIP.test(t.split(" – ")[1] || "") && !/vocal|guitar|bass|drum|keyboard|voce|chitarr|basso|batteria|tastier|piano/i.test(t)) continue;
+    out.push(t.slice(0, 120));
+    if (out.length >= 25) break;
+  }
+  return out.length ? out.join("\n") : null;
+}
+async function wkApi(lang, params){
+  const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?format=json&origin=*&${params}`); if (!r.ok) throw 0; return r.json();
+}
+const wkTitleKey = t => nk(String(t || "").replace(/\s*\((?:[^)]*\b(?:album|ep|disco|colonna sonora|soundtrack)\b[^)]*)\)\s*$/i, ""));
+async function wikiAlbumInfo(artist, album, year){
+  const ak = nk(artist), tk = wkTitleKey(album);
+  if (!ak || !tk) return null;
+  for (const lang of ["it", "en"]){
+    try {
+      const q = `${album} ${artist} ${lang === "it" ? "album" : "album"}`;
+      const s = await wkApi(lang, "action=query&list=search&srlimit=6&srnamespace=0&srsearch=" + encodeURIComponent(q));
+      const titles = (s.query?.search || []).map(x => x.title).filter(t => { const k = wkTitleKey(t); return k === tk || (tk.length > 6 && (k.startsWith(tk) || tk.startsWith(k))); });
+      if (!titles.length) continue;
+      const c = await wkApi(lang, "action=query&prop=revisions&rvprop=content&rvslots=main&redirects=1&titles=" + encodeURIComponent(titles.slice(0, 4).join("|")));
+      const pages = Object.values(c.query?.pages || {}).filter(p => p.revisions);
+      for (const t of titles){
+        const p = pages.find(p => p.title === t || wkTitleKey(p.title) === wkTitleKey(t)); if (!p) continue;
+        const wt = p.revisions[0].slots?.main?.["*"] || p.revisions[0]["*"] || "";
+        const ib = wkInfobox(wt); if (!ib) continue;
+        const ibArtist = nk(wkClean(ib.artist || ib.artista || ""));
+        if (!ibArtist || !(ibArtist.includes(ak) || ak.includes(ibArtist))) continue;
+        let date = null;
+        if (lang === "it"){
+          const g = wkClean(ib.giorno || ib.giornomese || "").replace(/§/g, ""), a = wkClean(ib.anno || "").match(/\d{4}/);
+          date = (g && a ? wkDate(`${g} ${a[0]}`) : null) || wkDate(ib.pubblicazione || ib.data || "");
+        } else date = wkDate(ib.released || ib.release_date || "");
+        if (date && year && Math.abs(Number(date.slice(0, 4)) - Number(year)) > 1) date = null;
+        return {
+          from: "Wikipedia" + (lang === "it" ? "" : " (inglese)"), page: p.title,
+          date, duration: wkDuration(ib.length || ib.durata || ""), producer: wkPeople(ib.producer || ib.produttore || "") || null,
+          lineup: wkLineup(wt, lang) || (lang === "it" ? null : null),
+        };
+      }
+    } catch(e){}
+  }
+  return null;
+}
+// Cosa manca a un disco tra i quattro dati
+function wkMissing(d){ return [!d.releaseDate && "data", !d.duration && "durata", !d.producer && "produttore", !d.lineup && "line up"].filter(Boolean); }
+// Completa solo i campi vuoti; restituisce i nomi dei campi aggiunti
+function wkApply(d, info){
+  const add = {};
+  if (!d.releaseDate && info.date){ add.releaseDate = info.date; if (!d.year) add.year = Number(info.date.slice(0, 4)); }
+  if (!d.duration && info.duration) add.duration = info.duration;
+  if (!d.producer && info.producer) add.producer = info.producer.slice(0, 200);
+  if (!d.lineup && info.lineup) add.lineup = info.lineup;
+  return add;
+}
+let wkRun = null;
+function openWikiFill(){
+  const todo = () => state.discs.filter(d => d.artist && d.album && wkMissing(d).length && !(getMeta().wikiNone || {})[d.id]);
+  const none = Object.keys(getMeta().wikiNone || {}).filter(id => state.discs.some(d => d.id === id && wkMissing(d).length)).length;
+  const n = todo().length;
+  $("menu").innerHTML = `<h3>Completa i dati da Wikipedia</h3>
+    <p>Per ogni disco cerco su Wikipedia (prima in italiano, poi in inglese) <b>data di pubblicazione, durata, produttore e line up</b>, e li aggiungo <b>solo dove mancano</b>: quello che hai già scritto non viene mai toccato.</p>
+    <p>${n ? `<b>${n === 1 ? "1 disco" : n + " dischi"}</b> con almeno un dato mancante.` : "Non ci sono dischi da completare."}${none ? ` Altri ${none} già cercati senza risultato vengono saltati.` : ""} Serve internet e ci vuole qualche minuto: tieni l'app aperta.</p>
+    <div class="ok" id="wkProg"></div><div class="err" id="wkErr"></div>
+    <div class="actions">${none ? `<button class="btn ghost" id="wkReset">Riprova anche quelli</button>` : ""}<button class="btn ghost" id="wkBack">Indietro</button>${n ? `<button class="btn" id="wkGo">Completa</button>` : ""}</div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("wkBack").onclick = () => { if (wkRun) wkRun.stop = true; openMenu(); };
+  if ($("wkReset")) $("wkReset").onclick = () => { setMeta("wikiNone", null); openWikiFill(); };
+  if (!$("wkGo")) return;
+  $("wkGo").onclick = async () => {
+    if (wkRun){ wkRun.stop = true; return; }
+    if (!navigator.onLine){ $("wkErr").textContent = "Serve la connessione a internet."; return; }
+    const list = todo(), run = wkRun = { stop: false };
+    $("wkGo").textContent = "Ferma";
+    let i = 0, done = 0, found = 0, fields = 0, dirty = 0;
+    const noneMap = { ...(getMeta().wikiNone || {}) };
+    const flush = () => { if (!dirty) return; persist(); setMeta("wikiNone", noneMap); dirty = 0; };
+    const worker = async () => {
+      while (!run.stop && i < list.length){
+        const d = list[i++];
+        let info = null; try { info = await wikiAlbumInfo(d.artist, d.album, d.year); } catch(e){}
+        const cur = state.discs.find(x => x.id === d.id);
+        if (cur){
+          const add = info ? wkApply(cur, info) : {};
+          if (Object.keys(add).length){ Object.assign(cur, add, { updatedAt: new Date().toISOString() }); found++; fields += Object.keys(add).filter(k => k !== "year").length; dirty++; }
+          else { noneMap[cur.id] = new Date().toISOString().slice(0, 10); dirty++; }
+        }
+        done++; if ($("wkProg")) $("wkProg").textContent = `${done} di ${list.length} · ${found === 1 ? "1 disco completato" : found + " dischi completati"}`;
+        if (dirty >= 15) try { flush(); } catch(e){ run.stop = true; if ($("wkErr")) $("wkErr").textContent = errText(e); }
+      }
+    };
+    try { await Promise.all([worker(), worker(), worker()]); } finally { try { flush(); } catch(e){ if ($("wkErr")) $("wkErr").textContent = errText(e); } }
+    wkRun = null; render();
+    if ($("wkGo")){ $("wkGo").remove(); }
+    if ($("wkProg")) $("wkProg").textContent = `${run.stop ? "Fermato" : "Fatto"}: ${found === 1 ? "1 disco completato" : found + " dischi completati"} (${fields} dati aggiunti)${done - found ? `; per ${done - found} non ho trovato niente da aggiungere` : ""}.`;
+  };
+}
+// Nel modulo: completa solo le caselle vuote (salvi tu con «Salva»)
+async function wikiFillForm(){
+  const artist = $("fArtist").value.trim(), album = $("fAlbum").value.trim(), say = t => { $("fWikiMsg").textContent = t; };
+  if (!artist || !album){ say("Scrivi prima artista e titolo dell'album."); return; }
+  if (!navigator.onLine){ say("Serve la connessione a internet."); return; }
+  $("fWiki").disabled = true; say("Cerco su Wikipedia…");
+  const yr = (parseRelease($("fYear").value) || {}).year;
+  let info = null; try { info = await wikiAlbumInfo(artist, album, yr); } catch(e){}
+  $("fWiki").disabled = false;
+  if (!info){ say("Non ho trovato l'album su Wikipedia."); return; }
+  const got = [];
+  const curRd = parseRelease($("fYear").value);
+  if (info.date && (!$("fYear").value.trim() || (curRd && !curRd.date && curRd.year === Number(info.date.slice(0, 4))))){ $("fYear").value = fmtDate(info.date); got.push("data"); }
+  if (!$("fDuration").value.trim() && info.duration){ $("fDuration").value = info.duration; got.push("durata"); }
+  if (!$("fProducer").value.trim() && info.producer){ $("fProducer").value = info.producer; got.push("produttore"); }
+  if (!$("fLineup").value.trim() && info.lineup){ $("fLineup").value = info.lineup; got.push("line up"); }
+  say(got.length ? `Aggiunti da ${info.from} («${info.page}»): ${got.join(", ")}. Controlla e salva.` : `Trovato «${info.page}», ma non c'era niente da aggiungere ai campi vuoti.`);
 }
 function tracksDuration(list){
   let t = 0, n = 0;
@@ -2240,6 +2433,7 @@ function openMenu(msg){
     <button class="item" id="mSnap">Ripristina una copia automatica<small>L'app salva da sola una copia al giorno e tiene le ultime 7</small></button>
     <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
     <button class="item" id="mUnlinked">Dischi da collegare a Discogs<small>${(n => n ? `${n === 1 ? "1 disco" : n + " dischi"} in collezione senza stampa Discogs` : "Tutti i dischi in collezione sono collegati")(collection().filter(d => !d.discogsId).length)}</small></button>
+    <button class="item" id="mWiki">Completa i dati da Wikipedia<small>Data, durata, produttore e line up, solo dove mancano · serve internet</small></button>
     <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
@@ -2253,6 +2447,7 @@ function openMenu(msg){
   $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
   $("mSnap").onclick = openSnapshots;
   $("mText").onclick = openTextSize;
+  $("mWiki").onclick = openWikiFill;
   $("mDiscogs").onclick = () => {
     const cur = getMeta().discogsToken || "";
     $("menu").innerHTML = `<h3>Discogs</h3>
