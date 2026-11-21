@@ -455,6 +455,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <textarea class="field" id="fNotes" rows="3" placeholder="Note"></textarea>
     <label>Colore della costina</label>
     <div class="swatches" id="fSw"></div>
+    <button type="button" class="btn ghost" id="fDg" style="width:100%;margin-top:18px" hidden>Collegamento a Discogs</button>
     <div class="err" id="fErr"></div>
     <div class="actions">
       <button type="button" class="btn ghost" id="fCancel">Annulla</button>
@@ -517,7 +518,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.76";
+const APP_VERSION = "1.77";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1198,47 +1199,68 @@ function discValue(d){
 function money(v, cur = "EUR"){ try { return new Intl.NumberFormat("it-IT", { style: "currency", currency: cur || "EUR" }).format(v); } catch(e){ return v.toFixed(2) + " " + cur; } }
 function patchDisc(id, patch){ state.discs = state.discs.map(x => x.id === id ? { ...x, ...patch } : x); persist(); return state.discs.find(x => x.id === id); }
 const STALE_MS = 7 * 864e5;
+function valueExplain(d, val){
+  const m = d.market, cl = (CONDS.find(c => c[0] === (d.condition || DEF_COND)) || CONDS[1])[1];
+  return val.src === "manual" ? "Valore inserito a mano." : val.src === "sugg" ? `Prezzo suggerito da Discogs per un disco in condizioni ${esc(cl)}.${typeof m.lowest === "number" ? ` La copia più economica in vendita costa di più (${money(m.lowest, m.cur)}).` : ""}` : val.src === "lowestPrud" ? `Valore prudente: la copia più economica in vendita su Discogs${m.forSale ? ` (${m.forSale} in vendita)` : ""}, che costa meno del prezzo suggerito per un disco in condizioni ${esc(cl)} (${money(val.sugg, val.cur)}).` : `Prezzo più basso tra le copie in vendita su Discogs${m.forSale ? ` (${m.forSale} in vendita)` : ""}.`;
+}
+// Nella scheda: solo la cifra e la spiegazione. Tutto il resto è in Modifica → Collegamento a Discogs
 async function drawValue(id, auto){
   const box = $("dValue"); if (!box) return;
   const d = state.discs.find(x => x.id === id); if (!d) return;
   const val = discValue(d), m = d.market;
   let h = "";
-  if (val) h += `<div class="vnum">${money(val.v, val.cur)}</div>`;
-  if (!d.discogsId){
-    h += val ? `<div class="vsub">Valore inserito a mano.</div>` : "";
-    h += `<div class="vsub">${val ? "Il disco non è collegato a Discogs." : "Collega il disco alla sua stampa su Discogs per avere il valore di mercato."}</div>
-      <div class="vbtns"><button type="button" class="btn small" id="vLink">Collega a Discogs</button></div>`;
-    box.innerHTML = h; $("vLink").onclick = () => openDgLink(id); return;
-  }
-  if (val){
-    const cl = (CONDS.find(c => c[0] === (d.condition || DEF_COND)) || CONDS[1])[1];
-    h += `<div class="vsub">${val.src === "manual" ? "Valore inserito a mano (si cambia da Modifica)." : val.src === "sugg" ? `Prezzo suggerito da Discogs per un disco in condizioni ${esc(cl)}.${typeof m.lowest === "number" ? ` La copia più economica in vendita costa di più (${money(m.lowest, m.cur)}).` : ""}` : val.src === "lowestPrud" ? `Valore prudente: la copia più economica in vendita su Discogs${m.forSale ? ` (${m.forSale} in vendita)` : ""}, che costa meno del prezzo suggerito per un disco in condizioni ${esc(cl)} (${money(val.sugg, val.cur)}).` : `Prezzo più basso tra le copie in vendita su Discogs${m.forSale ? ` (${m.forSale} in vendita)` : ""}.`}</div>`;
-    if (val.src === "lowest" && m.sugg === null && dgToken()) h += `<div class="vsub">Per il prezzo in base alle condizioni compila una volta le <a href="https://www.discogs.com/settings/seller" target="_blank" rel="noopener" style="color:var(--accent)">impostazioni da venditore</a> su Discogs, con valuta Euro.</div>`;
-    if (val.src === "lowest" && !dgToken()) h += `<div class="vsub">Inserisci il codice Discogs dal menu per avere il prezzo in base alle condizioni.</div>`;
-  } else if (m) h += `<div class="vsub">${m.missing ? "Discogs non trova più questa stampa: prova a ricollegarla." : "Su Discogs al momento non ci sono prezzi per questa stampa."}</div>`;
+  if (val) h += `<div class="vnum">${money(val.v, val.cur)}</div><div class="vsub">${d.discogsId ? valueExplain(d, val) : "Valore inserito a mano."}</div>`;
+  else if (!d.discogsId) h += `<div class="vsub">Nessun valore: collega il disco alla sua stampa da Modifica → Collegamento a Discogs.</div>`;
+  else if (m) h += `<div class="vsub">${m.missing ? "Discogs non trova più questa stampa: ricollegala da Modifica → Collegamento a Discogs." : "Su Discogs al momento non ci sono prezzi per questa stampa."}</div>`;
   else h += `<div class="vsub" id="vWait">${navigator.onLine === false ? "Sei offline: il prezzo arriverà quando sarai connesso." : "Chiedo il prezzo a Discogs…"}</div>`;
-  if (m && m.sugg) h += `<select class="field" id="vCond" aria-label="Condizioni del disco">${CONDS.filter(c => typeof m.sugg[c[0]] === "number").map(c => `<option value="${esc(c[0])}"${c[0] === (d.condition || DEF_COND) ? " selected" : ""}>${esc(c[1])} · ${money(m.sugg[c[0]], m.scur)}</option>`).join("")}</select>`;
-  if (m) h += `<div class="vsub">Aggiornato il ${new Date(m.at).toLocaleDateString("it-IT")}.</div>`;
-  h += `<div class="vpress">${pressLine(d.discogsInfo) || "Stampa collegata su Discogs"}</div>
-    <div class="vbtns grid2"><button type="button" class="btn ghost small" id="vRefresh">Aggiorna prezzo</button><a class="btn ghost small" href="https://www.discogs.com/release/${encodeURIComponent(d.discogsId)}" target="_blank" rel="noopener" style="text-decoration:none">Vedi su Discogs</a><button type="button" class="btn ghost small" id="vLink">Cambia stampa</button><button type="button" class="btn ghost small" id="vUnlink">Annulla link</button></div>`;
   box.innerHTML = h;
-  $("vUnlink").onclick = async () => {
+  if (auto && d.discogsId && navigator.onLine !== false && (!m || Date.now() - new Date(m.at).getTime() > STALE_MS)) refreshValue(id, true);
+}
+// Pannello "Collegamento a Discogs" (dal modulo Modifica)
+let dgPanelFor = null;
+function openDgPanel(id, msg){
+  const d = state.discs.find(x => x.id === id); if (!d) return;
+  dgPanelFor = id;
+  const val = discValue(d), m = d.market;
+  let h = `<h3>Collegamento a Discogs</h3>`;
+  if (!d.discogsId){
+    h += `<p>${val ? "Il disco ha un valore inserito a mano ma non è collegato a Discogs." : "Collega il disco alla sua stampa su Discogs per avere il valore di mercato."}</p>
+      <div class="err" id="dpErr"></div>
+      <div class="actions"><button type="button" class="btn ghost" id="dpClose">Chiudi</button><button type="button" class="btn" id="dpLink">Collega a Discogs</button></div>`;
+    $("menu").innerHTML = h; $("menuOv").hidden = false; $("menu").scrollTop = 0;
+    $("dpClose").onclick = closeDgPanel;
+    $("dpLink").onclick = () => { $("menuOv").hidden = true; dgPanelFor = null; openDgLink(id); };
+    return;
+  }
+  h += `<div class="vpress" style="margin-top:4px">${pressLine(d.discogsInfo) || "Stampa collegata su Discogs"}</div>`;
+  if (val) h += `<div class="vnum" style="margin-top:10px">${money(val.v, val.cur)}</div>`;
+  if (m && m.sugg) h += `<label for="dpCond">Condizioni del disco</label><select class="field" id="dpCond">${CONDS.filter(c => typeof m.sugg[c[0]] === "number").map(c => `<option value="${esc(c[0])}"${c[0] === (d.condition || DEF_COND) ? " selected" : ""}>${esc(c[1])} · ${money(m.sugg[c[0]], m.scur)}</option>`).join("")}</select>`;
+  if (val && val.src === "lowest" && m.sugg === null && dgToken()) h += `<p style="font-size:13px">Per il prezzo in base alle condizioni compila una volta le <a href="https://www.discogs.com/settings/seller" target="_blank" rel="noopener" style="color:var(--accent)">impostazioni da venditore</a> su Discogs, con valuta Euro.</p>`;
+  if (val && val.src === "lowest" && !dgToken()) h += `<p style="font-size:13px">Inserisci il codice Discogs dal menu ⋯ per avere il prezzo in base alle condizioni.</p>`;
+  if (m) h += `<p style="font-size:13px">Prezzo aggiornato il ${new Date(m.at).toLocaleDateString("it-IT")}.</p>`;
+  h += `<div class="ok" id="dpOk">${esc(msg || "")}</div><div class="err" id="dpErr"></div>
+    <div class="vbtns grid2" style="margin-top:12px"><button type="button" class="btn ghost small" id="dpRefresh">Aggiorna prezzo</button><a class="btn ghost small" href="https://www.discogs.com/release/${encodeURIComponent(d.discogsId)}" target="_blank" rel="noopener" style="text-decoration:none">Vedi su Discogs</a><button type="button" class="btn ghost small" id="dpLink">Cambia stampa</button><button type="button" class="btn ghost small" id="dpUnlink">Annulla link</button></div>
+    <div class="actions"><button type="button" class="btn" id="dpClose">Fatto</button></div>`;
+  $("menu").innerHTML = h; $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("dpClose").onclick = closeDgPanel;
+  $("dpLink").onclick = () => { $("menuOv").hidden = true; dgPanelFor = null; openDgLink(id); };
+  $("dpRefresh").onclick = async () => { $("dpRefresh").disabled = true; $("dpRefresh").textContent = "Aggiorno…"; const ok = await refreshValue(id, true); if (dgPanelFor === id) openDgPanel(id, ok ? "Prezzo aggiornato." : ""); if (!ok && $("dpErr")) $("dpErr").textContent = "Discogs non risponde: riprova tra un minuto."; };
+  if ($("dpCond")) $("dpCond").onchange = () => { patchDisc(id, { condition: $("dpCond").value }); openDgPanel(id); if (state.view === "statistiche") renderStats(); };
+  $("dpUnlink").onclick = async () => {
     if (!(await askConfirm("Annullare il collegamento a Discogs?", "Il disco non sarà più collegato a nessuna stampa su Discogs e il suo prezzo di mercato verrà tolto. Potrai ricollegarlo quando vuoi.", "Scollega", true))) return;
     state.discs = state.discs.map(x => { if (x.id !== id) return x; const y = { ...x, updatedAt: new Date().toISOString() }; delete y.discogsId; delete y.discogsInfo; delete y.market; return y; });
-    persist(); drawValue(id); if (state.view === "statistiche") renderStats();
+    persist(); openDgPanel(id); if (state.view === "statistiche") renderStats();
   };
-  $("vLink").onclick = () => openDgLink(id);
-  $("vRefresh").onclick = () => refreshValue(id);
-  if ($("vCond")) $("vCond").onchange = () => { patchDisc(id, { condition: $("vCond").value }); drawValue(id); if (state.view === "statistiche") renderStats(); };
-  if (auto && navigator.onLine !== false && (!m || Date.now() - new Date(m.at).getTime() > STALE_MS)) refreshValue(id, true);
 }
+function closeDgPanel(){ $("menuOv").hidden = true; dgPanelFor = null; }
 async function refreshValue(id, quiet){
-  const d = state.discs.find(x => x.id === id); if (!d || !d.discogsId) return;
-  const b = $("vRefresh"); if (b){ b.disabled = true; b.textContent = "Aggiorno…"; }
+  const d = state.discs.find(x => x.id === id); if (!d || !d.discogsId) return false;
+  let ok = true;
   try { const m = await fetchMarket(d.discogsId); patchDisc(id, { market: m }); }
-  catch(e){ if (!quiet && $("dValue")) { const w = $("vWait"); if (w) w.textContent = "Discogs non risponde: riprova tra un minuto."; else alertInline("Discogs non risponde: riprova tra un minuto."); } }
+  catch(e){ ok = false; if ($("dValue")){ const w = $("vWait"); if (w) w.textContent = "Discogs non risponde: il prezzo arriverà più tardi."; else if (!quiet) alertInline("Discogs non risponde: riprova tra un minuto."); } }
   if (!$("detOv").hidden && $("dValue")) drawValue(id);
   if (state.view === "statistiche") renderStats();
+  return ok;
 }
 function alertInline(t){ const b = $("dValue"); if (b) b.insertAdjacentHTML("beforeend", `<div class="vsub" style="color:#e08a7c">${esc(t)}</div>`); }
 /* Finestra "Collega a Discogs" */
@@ -1258,7 +1280,11 @@ async function linkDisc(relId, info){
   if (prev && prev.discogsId !== String(relId)) patch.condition = prev.condition || null;
   patchDisc(id, patch);
   $("dgOv").hidden = true; dgFor = null;
-  if (!$("detOv").hidden) drawValue(id); refreshValue(id, false);
+  if (!$("detOv").hidden) drawValue(id);
+  const fromForm = !$("formOv").hidden && state.editing === id;
+  if (fromForm) openDgPanel(id, "Disco collegato: chiedo il prezzo…");
+  const ok = await refreshValue(id, false);
+  if (fromForm && dgPanelFor === id) openDgPanel(id, ok ? "Disco collegato." : "Disco collegato. Il prezzo arriverà quando Discogs risponde.");
 }
 $("dgUrl").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); $("dgUrlGo").click(); } });
 $("dgUrlGo").onclick = async () => {
@@ -1639,6 +1665,7 @@ function drawStars(){
   }).join("") + `<span class="val">${r ? fmtStar(r) : ""}</span>`;
 }
 $("fWiki").addEventListener("click", wikiFillForm);
+$("fDg").addEventListener("click", () => { if (state.editing) openDgPanel(state.editing); });
 $("fStars").addEventListener("click", e => { const b = e.target.closest("button[data-r]"); if (!b) return; const r = Number(b.dataset.r); state.rating = state.rating === r ? 0 : r; drawStars(); });
 // Stelle con riempimento parziale (mezza stella disegnata, non "½")
 function starsHTML(r){
@@ -1807,6 +1834,7 @@ function focusDisc(id, fallbackY){
 function openForm(d, list){
   state.formScroll = window.scrollY;
   state.editing = d ? d.id : null; state.formList = d ? (d.list || null) : list;
+  $("fDg").hidden = !d;
   state.pending = null; state.fgenres = [...(d?.genres || [])]; state.color = d?.color || "";
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
