@@ -515,7 +515,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.73";
+const APP_VERSION = "1.74";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -899,13 +899,14 @@ function renderArtist(){
   $("viewArtist").innerHTML = `<div class="apage">
     ${r ? `<button class="backlink" id="aBack">‹ Torna a «${esc(r.title || "")}»</button>` : `<button class="backlink" id="aBack">‹ Indietro</button>`}
     <h2 style="margin-top:8px;font-size:34px">${esc(name)}</h2>
-    <h2>Dischi in collezione</h2>
-    ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
-    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(discRow).join("")}` : ""}
     <div class="aphoto-wrap"><div class="aphoto" id="aPhoto">Nessuna foto</div></div>
     <h2>Info</h2>
     <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
     <div class="saved" id="aSaved"></div>
+    <div style="margin-top:8px">${info ? "" : `<button type="button" class="btn ghost small" id="aBio">Carica biografia</button> `}<span class="hint" id="aBioMsg"></span></div>
+    <h2>Dischi in collezione</h2>
+    ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
+    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(discRow).join("")}` : ""}
     <div class="actions" style="margin-top:22px"><button type="button" class="btn ghost" id="aEdit">Modifica</button></div>
   </div>`;
   $("viewArtist").querySelectorAll(".th[data-cid]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cid); const src = d && await coverSrc(d); if (src) el.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()">`; });
@@ -917,6 +918,43 @@ function renderArtist(){
   const save = () => { const m = getMeta(); const ai = { ...(m.artistInfo || {}) }; const v = ta.value.trim(); if (v) ai[k] = v; else delete ai[k]; setMeta("artistInfo", ai); setMeta("lastChangeAt", new Date().toISOString()); $("aSaved").textContent = "Salvato"; };
   ta.addEventListener("input", () => { grow(); $("aSaved").textContent = ""; clearTimeout(t); t = setTimeout(() => { t = null; save(); }, 600); });
   ta.addEventListener("blur", () => { if (t){ clearTimeout(t); t = null; save(); } });
+  if ($("aBio")) $("aBio").onclick = () => loadBioFor(name, false);
+  // biografia automatica: se Info è vuoto la cerco da sola (una volta per artista ogni volta che apri l'app)
+  if (!info && navigator.onLine && !bioTried.has(k)){ bioTried.add(k); loadBioFor(name, true); }
+}
+/* ---------- Biografia: Wikipedia italiana, poi inglese ---------- */
+const bioTried = new Set();
+async function wikiBio(name, lang){
+  const suff = lang === "it" ? ["gruppo musicale", "cantante", "musicista", "cantautore", "rapper"] : ["band", "musician", "singer", "rapper", "singer-songwriter"];
+  const u = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=extracts|description|pageprops&exintro=1&explaintext=1&exlimit=max&titles=` + encodeURIComponent([name, ...suff.map(x => `${name} (${x})`)].join("|"));
+  const j = await (await fetch(u)).json();
+  const pages = Object.values(j.query?.pages || {}).filter(p => !("missing" in p) && !(p.pageprops && "disambiguation" in p.pageprops) && (p.extract || "").trim().length > 40);
+  const p = pages.find(p => MUSIC_RE.test(p.description || "")) || pages.find(p => MUSIC_RE.test((p.extract || "").slice(0, 400)));
+  return p ? { text: p.extract.trim().replace(/\n{2,}/g, "\n\n"), from: "Wikipedia" + (lang === "it" ? "" : " (inglese)") } : null;
+}
+function trimBio(t){
+  t = String(t || "").trim(); if (t.length <= 1500) return t;
+  let out = "";
+  for (const para of t.split(/\n+/)){ if (out && (out + "\n\n" + para).length > 1500) break; out = out ? out + "\n\n" + para : para; }
+  return out.length > 1500 ? out.slice(0, out.lastIndexOf(". ", 1500) + 1 || 1500) : out;
+}
+async function findBio(name){
+  for (const lang of ["it", "en"]){ try { const r = await wikiBio(name, lang); if (r) return r; } catch(e){} }
+  return null;
+}
+async function loadBioFor(name, auto){
+  const k = akey(name), say = t => { if ($("aBioMsg") && state.artist === name) $("aBioMsg").textContent = t; };
+  if (!navigator.onLine){ say("Serve la connessione a internet."); return; }
+  say("Cerco la biografia…"); if ($("aBio")) $("aBio").disabled = true;
+  const bio = await findBio(name);
+  if ($("aBio")) $("aBio").disabled = false;
+  if (!bio){ say(auto ? "Biografia non trovata: puoi scriverla tu o riprovare." : "Non ho trovato una biografia: puoi scriverla tu."); return; }
+  const cur = ((getMeta().artistInfo || {})[k] || "").trim();
+  const typing = state.artist === name && $("aInfo") && $("aInfo").value.trim();
+  if (auto && (cur || typing)){ say(""); return; } // nel frattempo hai scritto tu: non tocco niente
+  if (!auto && cur && !(await askConfirm("Sostituire il testo?", "In Info c'è già del testo: la biografia trovata lo sostituirà.", "Sostituisci"))){ say(""); return; }
+  setMeta("artistInfo", { ...(getMeta().artistInfo || {}), [k]: `${trimBio(bio.text)}\n\n(Fonte: ${bio.from})` }); setMeta("lastChangeAt", new Date().toISOString());
+  if (state.view === "artista" && state.artist === name){ const y = window.scrollY; renderArtist(); window.scrollTo(0, y); }
 }
 async function drawArtistPhoto(name){
   const key = "artist:" + akey(name);
@@ -1067,12 +1105,14 @@ function openArtistEdit(){
     <button class="item" id="aeUpload">Carica una foto<small>Dalla libreria foto del telefono</small></button>
     <button class="item" id="aeOnline">Scegli una foto online<small>Da Deezer e Wikipedia · serve internet</small></button>
     ${has ? `<button class="item" id="aeDel">Togli la foto<small>Ti chiedo conferma prima di eliminarla</small></button>` : ""}
+    <button class="item" id="aeBio">Carica biografia<small>Da Wikipedia · sostituisce il testo di Info (ti chiedo conferma)</small></button>
     <div class="actions"><button type="button" class="btn ghost" id="aeClose">Annulla</button></div>`;
   $("menuOv").hidden = false; $("menu").scrollTop = 0;
   $("aeClose").onclick = () => { $("menuOv").hidden = true; };
   $("aeUpload").onclick = () => { $("menuOv").hidden = true; $("artistPhotoFile").value = ""; $("artistPhotoFile").click(); };
   $("aeOnline").onclick = () => { $("menuOv").hidden = true; openPhotoPicker(state.artist); };
   if (has) $("aeDel").onclick = async () => { $("menuOv").hidden = true; await deleteArtistPhoto(); };
+  $("aeBio").onclick = () => { $("menuOv").hidden = true; window.scrollTo(0, 0); loadBioFor(state.artist, false); };
 }
 async function deleteArtistPhoto(){
     if (!(await askConfirm("Togliere la foto?", "La foto dell'artista verrà eliminata.", "Togli", true))) return;
