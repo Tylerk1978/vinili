@@ -190,6 +190,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .dcover img{width:100%;height:100%;object-fit:cover;display:block}
 @media (max-width:420px){ .dcover{width:155px;height:155px} }
 .dinfo{min-width:0}
+.plink{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.55);text-underline-offset:3px}
+.plist{line-height:1.9}
 .dinfo .art{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--muted);font-size:16px;text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.45);text-underline-offset:4px}
 .dinfo .yr{color:var(--muted);font-size:calc(14px * var(--ts, 1));margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -518,7 +520,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.77";
+const APP_VERSION = "1.78";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -758,7 +760,7 @@ function decadeCounts(){
   for (const d of collection()) if (d.year){ const k = Math.floor(d.year / 10) * 10; m[k] = (m[k] || 0) + 1; }
   return Object.keys(m).map(Number).sort((a,b) => a - b).map(k => [k, m[k]]);
 }
-function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)); }
+function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)) || norm(d.lineup).includes(q) || norm(d.producer).includes(q); }
 // Rimpicciolisce il testo di ogni costina finché artista e titolo ci stanno interi
 function fitSpines(root){
   const spines = root.querySelectorAll(".spine .txt");
@@ -881,16 +883,45 @@ function openArtist(name, ret){
 }
 function goBackFromArtist(){
   const r = state.artistReturn; state.artistReturn = null;
-  if (r.view === "artista") state.artist = r.artist;
+  if (r.view === "artista"){ state.artist = r.artist; state.artistReturn = r.parent || null; }
   showView(r.view);
   window.scrollTo(0, r.scroll || 0);
   if (r.id) openDetail(r.id);
 }
-function discRow(d){
+// Musicisti e produttori: nomi cliccabili
+function lineupPeople(t){
+  return String(t || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(/^(.+?)\s+[–—-]\s+(.+)$/) || l.match(/^([^:]+?)\s*:\s+(.+)$/) || l.match(/^(.+?)\s*\((.+)\)\s*$/);
+    return { name: (m ? m[1] : l).replace(/\(.*?\)/g, "").trim(), role: m ? m[2].trim() : "", line: l };
+  }).filter(p => p.name && p.name.length <= 60);
+}
+function producerPeople(t){ return String(t || "").split(/\s*(?:,|;|\/|&|\be\b|\band\b)\s*/i).map(x => x.replace(/\(.*?\)/g, "").trim()).filter(x => x && x.length <= 60); }
+const plink = n => `<button type="button" class="art plink" data-person="${esc(n)}">${esc(n)}</button>`;
+function lineupHTML(t){
+  const ps = lineupPeople(t), lines = String(t || "").split("\n").map(l => l.trim()).filter(Boolean);
+  return lines.map(l => { const p = ps.find(x => x.line === l); return p ? plink(p.name) + (p.role ? ` – ${esc(p.role)}` : "") : esc(l); }).join("<br>");
+}
+function producerHTML(t){
+  const names = producerPeople(t); if (!names.length) return esc(t);
+  return names.map(plink).join(", ");
+}
+// Dischi in cui una persona suona o produce (escludendo quelli a suo nome)
+function creditsOf(name){
+  const k = akey(name), out = [];
+  for (const d of state.discs){
+    if (akey(d.artist) === k) continue;
+    const roles = [];
+    for (const p of lineupPeople(d.lineup)) if (akey(p.name) === k) roles.push(p.role || "musicista");
+    if (producerPeople(d.producer).some(n => akey(n) === k)) roles.push("produttore");
+    if (roles.length) out.push({ d, role: [...new Set(roles)].join(" · ") });
+  }
+  return out.sort((a, b) => (a.d.year || 9999) - (b.d.year || 9999));
+}
+function discRow(d, extra){
   const st = d.list === "wish" ? " · in wishlist" : d.list === "incoming" ? " · in arrivo" : "";
   const r = Number(d.rating) || 0;
   const stars = r ? `<span class="rstars" title="${String(r).replace(".", ",")} stelle">${starsHTML(r)}</span>` : "";
-  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span class="rinfo"><b>${esc(d.album)}</b><span>${d.year || "anno ?"}${(d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span>${stars}</button>`;
+  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span class="rinfo"><b>${extra ? esc(d.artist) + " – " : ""}${esc(d.album)}</b><span>${d.year || "anno ?"}${extra ? " · " + esc(extra) : (d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span>${stars}</button>`;
 }
 function renderArtist(){
   const name = state.artist, k = akey(name);
@@ -899,6 +930,8 @@ function renderArtist(){
   const other = mine.filter(d => d.list);
   const info = (getMeta().artistInfo || {})[k] || "";
   const r = state.artistReturn;
+  const credits = creditsOf(name);
+  const members = [...new Map(coll.concat(other).flatMap(d => lineupPeople(d.lineup)).filter(p => akey(p.name) !== k).map(p => [akey(p.name), p.name])).values()].sort((a, b) => a.localeCompare(b, "it"));
   $("viewArtist").innerHTML = `<div class="apage">
     ${r ? `<button class="backlink" id="aBack">‹ Torna a «${esc(r.title || "")}»</button>` : `<button class="backlink" id="aBack">‹ Indietro</button>`}
     <h2 style="margin-top:8px;font-size:34px">${esc(name)}</h2>
@@ -907,9 +940,10 @@ function renderArtist(){
     <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
     <div class="saved" id="aSaved"></div>
     <div style="margin-top:8px">${info ? "" : `<button type="button" class="btn ghost small" id="aBio">Carica biografia</button> `}<span class="hint" id="aBioMsg"></span></div>
-    <h2>Dischi in collezione</h2>
-    ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
-    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(discRow).join("")}` : ""}
+    ${coll.length || !credits.length ? `<h2>Dischi in collezione</h2>${coll.map(d => discRow(d)).join("") || `<p class="note">Nessun disco in collezione.</p>`}` : ""}
+    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(d => discRow(d)).join("")}` : ""}
+    ${credits.length ? `<h2>Suona o produce in</h2>${credits.map(c => discRow(c.d, c.role)).join("")}` : ""}
+    ${members.length ? `<h2>Musicisti nei suoi dischi</h2><div class="box plist">${members.map(plink).join(" · ")}</div>` : ""}
     <div class="actions" style="margin-top:22px"><button type="button" class="btn ghost" id="aEdit">Modifica</button></div>
   </div>`;
   $("viewArtist").querySelectorAll(".th[data-cid]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cid); const src = d && await coverSrc(d); if (src) el.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()">`; });
@@ -969,7 +1003,7 @@ async function drawArtistPhoto(name){
   btn.innerHTML = url ? `<img src="${esc(url)}" alt="">` : "Nessuna foto";
 }
 /* ---------- Foto artisti: Deezer (foto ufficiali) + Wikipedia ---------- */
-const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista/i;
+const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista|batterista|bassista|tastierista|pianista|produttore discografico|bassist|keyboardist|pianist|record producer/i;
 const nk = s => norm(s).replace(/^the\s+/, "").replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
 function jsonp(url){
   return new Promise((res, rej) => {
@@ -1128,6 +1162,7 @@ async function deleteArtistPhoto(){
   }
 $("viewArtist").addEventListener("click", async e => {
   if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
+  const pl = e.target.closest("[data-person]"); if (pl){ const y = window.scrollY; return openArtist(pl.dataset.person, { view: "artista", artist: state.artist, title: state.artist, scroll: y, parent: state.artistReturn }); }
   const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
   if (e.target.closest("#aEdit")) return openArtistEdit();
 
@@ -1698,8 +1733,8 @@ async function openDetail(id){
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
     ${(d.genres || []).length ? `<div class="dsec"><h4>Genere</h4><div class="box">${d.genres.map(esc).join(", ")}</div></div>` : ""}
-    ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${esc(d.producer)}</div></div>` : ""}
-    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
+    ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${producerHTML(d.producer)}</div></div>` : ""}
+    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box">${lineupHTML(d.lineup)}</div></div>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
     ${featText(d) ? `<div class="dsec"><h4>Caratteristiche disco</h4><div class="box" style="white-space:pre-line">${esc(featText(d))}</div></div>` : ""}
     ${d.notes ? `<div class="dsec"><h4>Note</h4><div class="box">${esc(d.notes)}</div></div>` : ""}
@@ -1715,6 +1750,7 @@ async function openDetail(id){
   $("dClose").onclick = () => { $("detOv").hidden = true; backToUnlinked(); };
   $("dBack").onclick = () => $("dClose").click();
   $("dEdit").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openForm(d, d.list || null); };
+  $("det").querySelectorAll("[data-person]").forEach(b => b.onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(b.dataset.person, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); });
   $("dArtist").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(d.artist, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); };
   $("dDel").onclick = async () => {
     if (!(await askConfirm("Eliminare il disco?", `«${d.album}» di ${d.artist} verrà eliminato.`, "Elimina", true))) return;
