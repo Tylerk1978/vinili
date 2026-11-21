@@ -517,7 +517,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.75";
+const APP_VERSION = "1.76";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1982,16 +1982,33 @@ function wkLineup(wt, lang){
   }
   return out.length ? out.join("\n") : null;
 }
+// Wikipedia limita le richieste troppo fitte: se risponde "troppe richieste" aspetto e riprovo
+const wkSleep = ms => new Promise(r => setTimeout(r, ms));
 async function wkApi(lang, params){
-  const r = await fetch(`https://${lang}.wikipedia.org/w/api.php?format=json&origin=*&${params}`); if (!r.ok) throw 0; return r.json();
+  const url = `https://${lang}.wikipedia.org/w/api.php?format=json&origin=*&maxlag=5&${params}`;
+  for (let att = 0; att < 4; att++){
+    let r = null;
+    try { r = await fetch(url); } catch(e){ r = null; }
+    if (r && r.ok){
+      const j = await r.json().catch(() => null);
+      if (j && j.error && /maxlag|ratelimit/i.test(j.error.code || "")){ await wkSleep(2000 * (att + 1)); continue; }
+      if (j && !j.error) return j;
+      throw { code: "wiki" };
+    }
+    if (r && r.status !== 429 && r.status < 500) throw { code: "wiki" };
+    const ra = r && Number(r.headers.get("retry-after"));
+    await wkSleep(ra ? Math.min(ra, 20) * 1000 : 1500 * Math.pow(2, att));
+  }
+  throw { code: "wiki" };
 }
 const wkTitleKey = t => nk(String(t || "").replace(/\s*\((?:[^)]*\b(?:album|ep|disco|colonna sonora|soundtrack)\b[^)]*)\)\s*$/i, ""));
 async function wikiAlbumInfo(artist, album, year){
   const ak = nk(artist), tk = wkTitleKey(album);
   if (!ak || !tk) return null;
+  let failed = false;
   for (const lang of ["it", "en"]){
     try {
-      const q = `${album} ${artist} ${lang === "it" ? "album" : "album"}`;
+      const q = `${album} ${artist} album`;
       const s = await wkApi(lang, "action=query&list=search&srlimit=6&srnamespace=0&srsearch=" + encodeURIComponent(q));
       const titles = (s.query?.search || []).map(x => x.title).filter(t => { const k = wkTitleKey(t); return k === tk || (tk.length > 6 && (k.startsWith(tk) || tk.startsWith(k))); });
       if (!titles.length) continue;
@@ -2012,11 +2029,12 @@ async function wikiAlbumInfo(artist, album, year){
         return {
           from: "Wikipedia" + (lang === "it" ? "" : " (inglese)"), page: p.title,
           date, duration: wkDuration(ib.length || ib.durata || ""), producer: wkPeople(ib.producer || ib.produttore || "") || null,
-          lineup: wkLineup(wt, lang) || (lang === "it" ? null : null),
+          lineup: wkLineup(wt, lang) || null,
         };
       }
-    } catch(e){}
+    } catch(e){ failed = true; }
   }
+  if (failed) throw { code: "wiki" }; // errore di rete o Wikipedia occupata: non vuol dire che l'album non c'è
   return null;
 }
 // Cosa manca a un disco tra i quattro dati
@@ -2031,9 +2049,10 @@ function wkApply(d, info){
   return add;
 }
 let wkRun = null;
+try { if (getMeta().wikiNone) setMeta("wikiNone", null); } catch(e){}
 function openWikiFill(){
-  const todo = () => state.discs.filter(d => d.artist && d.album && wkMissing(d).length && !(getMeta().wikiNone || {})[d.id]);
-  const none = Object.keys(getMeta().wikiNone || {}).filter(id => state.discs.some(d => d.id === id && wkMissing(d).length)).length;
+  const todo = () => state.discs.filter(d => d.artist && d.album && wkMissing(d).length && !(getMeta().wikiNone2 || {})[d.id]);
+  const none = Object.keys(getMeta().wikiNone2 || {}).filter(id => state.discs.some(d => d.id === id && wkMissing(d).length)).length;
   const n = todo().length;
   $("menu").innerHTML = `<h3>Completa i dati da Wikipedia</h3>
     <p>Per ogni disco cerco su Wikipedia (prima in italiano, poi in inglese) <b>data di pubblicazione, durata, produttore e line up</b>, e li aggiungo <b>solo dove mancano</b>: quello che hai già scritto non viene mai toccato.</p>
@@ -2042,21 +2061,29 @@ function openWikiFill(){
     <div class="actions">${none ? `<button class="btn ghost" id="wkReset">Riprova anche quelli</button>` : ""}<button class="btn ghost" id="wkBack">Indietro</button>${n ? `<button class="btn" id="wkGo">Completa</button>` : ""}</div>`;
   $("menuOv").hidden = false; $("menu").scrollTop = 0;
   $("wkBack").onclick = () => { if (wkRun) wkRun.stop = true; openMenu(); };
-  if ($("wkReset")) $("wkReset").onclick = () => { setMeta("wikiNone", null); openWikiFill(); };
+  if ($("wkReset")) $("wkReset").onclick = () => { setMeta("wikiNone2", null); openWikiFill(); };
   if (!$("wkGo")) return;
   $("wkGo").onclick = async () => {
     if (wkRun){ wkRun.stop = true; return; }
     if (!navigator.onLine){ $("wkErr").textContent = "Serve la connessione a internet."; return; }
     const list = todo(), run = wkRun = { stop: false };
     $("wkGo").textContent = "Ferma";
-    let i = 0, done = 0, found = 0, fields = 0, dirty = 0;
-    const noneMap = { ...(getMeta().wikiNone || {}) };
-    const flush = () => { if (!dirty) return; persist(); setMeta("wikiNone", noneMap); dirty = 0; };
+    let i = 0, done = 0, found = 0, fields = 0, dirty = 0, errors = 0, streak = 0;
+    const noneMap = { ...(getMeta().wikiNone2 || {}) };
+    const flush = () => { if (!dirty) return; persist(); setMeta("wikiNone2", noneMap); dirty = 0; };
     const worker = async () => {
       while (!run.stop && i < list.length){
         const d = list[i++];
-        let info = null; try { info = await wikiAlbumInfo(d.artist, d.album, d.year); } catch(e){}
+        let info = null, err = false;
+        try { info = await wikiAlbumInfo(d.artist, d.album, d.year); streak = 0; } catch(e){ err = true; errors++; streak++; }
         const cur = state.discs.find(x => x.id === d.id);
+        if (err){
+          done++;
+          if ($("wkProg")) $("wkProg").textContent = `${done} di ${list.length} · ${found === 1 ? "1 disco completato" : found + " dischi completati"} · Wikipedia non risponde, aspetto un momento…`;
+          if (streak >= 8){ run.stop = true; run.why = "net"; break; }
+          await wkSleep(4000 * Math.min(streak, 4));
+          continue;
+        }
         if (cur){
           const add = info ? wkApply(cur, info) : {};
           if (Object.keys(add).length){ Object.assign(cur, add, { updatedAt: new Date().toISOString() }); found++; fields += Object.keys(add).filter(k => k !== "year").length; dirty++; }
@@ -2064,12 +2091,15 @@ function openWikiFill(){
         }
         done++; if ($("wkProg")) $("wkProg").textContent = `${done} di ${list.length} · ${found === 1 ? "1 disco completato" : found + " dischi completati"}`;
         if (dirty >= 15) try { flush(); } catch(e){ run.stop = true; if ($("wkErr")) $("wkErr").textContent = errText(e); }
+        await wkSleep(350);
       }
     };
-    try { await Promise.all([worker(), worker(), worker()]); } finally { try { flush(); } catch(e){ if ($("wkErr")) $("wkErr").textContent = errText(e); } }
+    try { await worker(); } finally { try { flush(); } catch(e){ if ($("wkErr")) $("wkErr").textContent = errText(e); } }
     wkRun = null; render();
     if ($("wkGo")){ $("wkGo").remove(); }
-    if ($("wkProg")) $("wkProg").textContent = `${run.stop ? "Fermato" : "Fatto"}: ${found === 1 ? "1 disco completato" : found + " dischi completati"} (${fields} dati aggiunti)${done - found ? `; per ${done - found} non ho trovato niente da aggiungere` : ""}.`;
+    const nf = done - found - errors;
+    if ($("wkProg")) $("wkProg").textContent = `${run.stop ? "Fermato" : "Fatto"}: ${found === 1 ? "1 disco completato" : found + " dischi completati"} (${fields} dati aggiunti)${nf > 0 ? `; per ${nf} non ho trovato niente da aggiungere` : ""}.`;
+    if (errors && $("wkErr")) $("wkErr").textContent = run.why === "net" ? "Wikipedia ha smesso di rispondere (troppe richieste o connessione assente): riprova tra qualche minuto, riparto dai dischi che mancano." : `${errors === 1 ? "1 disco non è stato cercato" : errors + " dischi non sono stati cercati"} per un problema di connessione: rilancia per riprovarli.`;
   };
 }
 // Nel modulo: completa solo le caselle vuote (salvi tu con «Salva»)
@@ -2079,9 +2109,9 @@ async function wikiFillForm(){
   if (!navigator.onLine){ say("Serve la connessione a internet."); return; }
   $("fWiki").disabled = true; say("Cerco su Wikipedia…");
   const yr = (parseRelease($("fYear").value) || {}).year;
-  let info = null; try { info = await wikiAlbumInfo(artist, album, yr); } catch(e){}
+  let info = null, err = false; try { info = await wikiAlbumInfo(artist, album, yr); } catch(e){ err = true; }
   $("fWiki").disabled = false;
-  if (!info){ say("Non ho trovato l'album su Wikipedia."); return; }
+  if (!info){ say(err ? "Wikipedia non risponde in questo momento: riprova tra poco." : "Non ho trovato l'album su Wikipedia."); return; }
   const got = [];
   const curRd = parseRelease($("fYear").value);
   if (info.date && (!$("fYear").value.trim() || (curRd && !curRd.date && curRd.year === Number(info.date.slice(0, 4))))){ $("fYear").value = fmtDate(info.date); got.push("data"); }
