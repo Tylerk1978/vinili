@@ -190,8 +190,6 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .dcover img{width:100%;height:100%;object-fit:cover;display:block}
 @media (max-width:420px){ .dcover{width:155px;height:155px} }
 .dinfo{min-width:0}
-.plink{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.55);text-underline-offset:3px}
-.plist{line-height:1.9}
 .dinfo .art{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--muted);font-size:16px;text-align:left;text-decoration:underline;text-decoration-color:rgba(217,166,90,.45);text-underline-offset:4px}
 .dinfo .yr{color:var(--muted);font-size:calc(14px * var(--ts, 1));margin-top:6px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -520,7 +518,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.79";
+const APP_VERSION = "1.80";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -760,7 +758,7 @@ function decadeCounts(){
   for (const d of collection()) if (d.year){ const k = Math.floor(d.year / 10) * 10; m[k] = (m[k] || 0) + 1; }
   return Object.keys(m).map(Number).sort((a,b) => a - b).map(k => [k, m[k]]);
 }
-function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)) || norm(d.lineup).includes(q) || norm(d.producer).includes(q); }
+function matchQ(d, q){ if (!q) return true; q = norm(q); return norm(d.artist).includes(q) || norm(d.album).includes(q) || norm(d.tracks).includes(q) || (d.genres || []).some(g => norm(g).includes(q)); }
 // Rimpicciolisce il testo di ogni costina finché artista e titolo ci stanno interi
 function fitSpines(root){
   const spines = root.querySelectorAll(".spine .txt");
@@ -883,57 +881,16 @@ function openArtist(name, ret){
 }
 function goBackFromArtist(){
   const r = state.artistReturn; state.artistReturn = null;
-  if (r.view === "artista"){ state.artist = r.artist; state.artistReturn = r.parent || null; }
+  if (r.view === "artista") state.artist = r.artist;
   showView(r.view);
   window.scrollTo(0, r.scroll || 0);
   if (r.id) openDetail(r.id);
 }
-// Musicisti e produttori: nomi cliccabili
-function lineupPeople(t){
-  return String(t || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
-    const m = l.match(/^(.+?)\s+[–—-]\s+(.+)$/) || l.match(/^([^:]+?)\s*:\s+(.+)$/) || l.match(/^(.+?)\s*\((.+)\)\s*$/);
-    return { name: (m ? m[1] : l).replace(/\(.*?\)/g, "").trim(), role: m ? m[2].trim() : "", line: l };
-  }).filter(p => p.name && p.name.length <= 60);
-}
-// Nomi delle persone sempre come "Cognome Nome" (le band e gli artisti in collezione restano come sono)
-const PARTICLES = new Set(["da","de","del","della","dei","di","du","van","von","der","den","le","la","st.","mac","dos","das"]);
-function splitName(n){
-  const t = String(n || "").trim().split(/\s+/); if (t.length < 2) return { first: "", last: t[0] || "" };
-  let end = t.length; const suff = [];
-  while (end > 1 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(t[end - 1].replace(/,$/, ""))) suff.unshift(t[--end]);
-  let i = end - 1; while (i > 1 && PARTICLES.has(t[i - 1].toLowerCase())) i--;
-  return { first: t.slice(0, i).join(" "), last: t.slice(i, end).join(" ") + (suff.length ? " " + suff.join(" ") : "") };
-}
-const surnameFirst = n => { const p = splitName(n); return p.first ? `${p.last} ${p.first}` : p.last; };
-function isArtistName(n){ const k = akey(n); return state.discs.some(d => akey(d.artist) === k); }
-const mn = n => isArtistName(n) ? String(n).trim() : surnameFirst(n);
-function producerPeople(t){ return String(t || "").split(/\s*(?:,|;|\/|&|\be\b|\band\b)\s*/i).map(x => x.replace(/\(.*?\)/g, "").trim()).filter(x => x && x.length <= 60); }
-const plink = n => `<button type="button" class="art plink" data-person="${esc(n)}">${esc(mn(n))}</button>`;
-function lineupHTML(t){
-  const ps = lineupPeople(t), lines = String(t || "").split("\n").map(l => l.trim()).filter(Boolean);
-  return lines.map(l => { const p = ps.find(x => x.line === l); return p ? plink(p.name) + (p.role ? ` – ${esc(p.role)}` : "") : esc(l); }).join("<br>");
-}
-function producerHTML(t){
-  const names = producerPeople(t); if (!names.length) return esc(t);
-  return names.map(plink).join(", ");
-}
-// Dischi in cui una persona suona o produce (escludendo quelli a suo nome)
-function creditsOf(name){
-  const k = akey(name), out = [];
-  for (const d of state.discs){
-    if (akey(d.artist) === k) continue;
-    const roles = [];
-    for (const p of lineupPeople(d.lineup)) if (akey(p.name) === k) roles.push(p.role || "musicista");
-    if (producerPeople(d.producer).some(n => akey(n) === k)) roles.push("produttore");
-    if (roles.length) out.push({ d, role: [...new Set(roles)].join(" · ") });
-  }
-  return out.sort((a, b) => (a.d.year || 9999) - (b.d.year || 9999));
-}
-function discRow(d, extra){
+function discRow(d){
   const st = d.list === "wish" ? " · in wishlist" : d.list === "incoming" ? " · in arrivo" : "";
   const r = Number(d.rating) || 0;
   const stars = r ? `<span class="rstars" title="${String(r).replace(".", ",")} stelle">${starsHTML(r)}</span>` : "";
-  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span class="rinfo"><b>${extra ? esc(d.artist) + " – " : ""}${esc(d.album)}</b><span>${d.year || "anno ?"}${extra ? " · " + esc(extra) : (d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span>${stars}</button>`;
+  return `<button class="drow" data-id="${esc(d.id)}"><span class="th" data-cid="${esc(d.id)}">${spineSpan(d)}</span><span class="rinfo"><b>${esc(d.album)}</b><span>${d.year || "anno ?"}${(d.genres || []).length ? " · " + esc(d.genres.join(", ")) : ""}${st}</span></span>${stars}</button>`;
 }
 function renderArtist(){
   const name = state.artist, k = akey(name);
@@ -942,20 +899,17 @@ function renderArtist(){
   const other = mine.filter(d => d.list);
   const info = (getMeta().artistInfo || {})[k] || "";
   const r = state.artistReturn;
-  const credits = creditsOf(name);
-  const members = [...new Map(coll.concat(other).flatMap(d => lineupPeople(d.lineup)).filter(p => akey(p.name) !== k).map(p => [akey(p.name), p.name])).values()].sort((a, b) => a.localeCompare(b, "it"));
   $("viewArtist").innerHTML = `<div class="apage">
     ${r ? `<button class="backlink" id="aBack">‹ Torna a «${esc(r.title || "")}»</button>` : `<button class="backlink" id="aBack">‹ Indietro</button>`}
-    <h2 style="margin-top:8px;font-size:34px">${esc(mn(name))}</h2>
+    <h2 style="margin-top:8px;font-size:34px">${esc(name)}</h2>
     <div class="aphoto-wrap"><div class="aphoto" id="aPhoto">Nessuna foto</div></div>
     <h2>Info</h2>
     <textarea class="field infoarea" id="aInfo" placeholder="Biografia, formazione, curiosità…">${esc(info)}</textarea>
     <div class="saved" id="aSaved"></div>
     <div style="margin-top:8px">${info ? "" : `<button type="button" class="btn ghost small" id="aBio">Carica biografia</button> `}<span class="hint" id="aBioMsg"></span></div>
-    ${coll.length || !credits.length ? `<h2>Dischi in collezione</h2>${coll.map(d => discRow(d)).join("") || `<p class="note">Nessun disco in collezione.</p>`}` : ""}
-    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(d => discRow(d)).join("")}` : ""}
-    ${credits.length ? `<h2>Suona o produce in</h2>${credits.map(c => discRow(c.d, c.role)).join("")}` : ""}
-    ${members.length ? `<h2>Musicisti nei suoi dischi</h2><div class="box plist">${members.sort((a, b) => sortName(mn(a)).localeCompare(sortName(mn(b)), "it")).map(plink).join(" · ")}</div>` : ""}
+    <h2>Dischi in collezione</h2>
+    ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
+    ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(discRow).join("")}` : ""}
     <div class="actions" style="margin-top:22px"><button type="button" class="btn ghost" id="aEdit">Modifica</button></div>
   </div>`;
   $("viewArtist").querySelectorAll(".th[data-cid]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cid); const src = d && await coverSrc(d); if (src) el.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()">`; });
@@ -1015,7 +969,7 @@ async function drawArtistPhoto(name){
   btn.innerHTML = url ? `<img src="${esc(url)}" alt="">` : "Nessuna foto";
 }
 /* ---------- Foto artisti: Deezer (foto ufficiali) + Wikipedia ---------- */
-const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista|batterista|bassista|tastierista|pianista|produttore discografico|bassist|keyboardist|pianist|record producer/i;
+const MUSIC_RE = /\b(band|musician|singer|rapper|group|duo|trio|rock|metal|punk|grunge|hip hop|music|musical|composer|songwriter|dj|producer|guitarist|vocalist|drummer|bassist|orchestra|ensemble|supergroup)\b|cantante|gruppo|musicista|cantautore|compositore|chitarrista/i;
 const nk = s => norm(s).replace(/^the\s+/, "").replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
 function jsonp(url){
   return new Promise((res, rej) => {
@@ -1117,42 +1071,6 @@ async function openPhotoPicker(name){
   };
 }
 let photoRun = null;
-async function autoPersonPhoto(name){
-  const k = akey(name);
-  if (await artistHasPhoto(k) && !(await artistPhotoIsAuto(k))) return "had";
-  if (await artistHasPhoto(k)) return "had";
-  const base = t => akey(String(t || "").replace(/\s*\(.*\)\s*$/, ""));
-  let c = null;
-  try { c = (await wikiCandidates(name)).find(x => base(x.label) === k); } catch(e){}
-  if (!c){ try { c = (await deezerCandidates(name)).filter(x => x.exact).sort((a, b) => b.fans - a.fans)[0]; } catch(e){} }
-  if (!c) return "none";
-  await saveArtistPhoto(name, c.src, true);
-  return "new";
-}
-async function musicianPhotos(){
-  if (photoRun){ photoRun.stop = true; return; }
-  const names = groups("musicista").map(g => g.label);
-  if (!names.length) return;
-  if (!navigator.onLine){ state.musMsg = "Serve la connessione a internet."; renderStats(); return; }
-  const run = photoRun = { stop: false }; let i = 0, found = 0, had = 0, done = 0;
-  const say = t => { state.musMsg = t; const el = $("sMusMsg"); if (el) el.textContent = t; };
-  renderStats();
-  const worker = async () => {
-    while (!run.stop && i < names.length){
-      const name = names[i++];
-      let res = "none"; try { res = await autoPersonPhoto(name); } catch(e){}
-      if (res === "new") found++; else if (res === "had") had++;
-      done++; say(`${done} di ${names.length} · ${found} ${found === 1 ? "foto nuova" : "foto nuove"}`);
-      await new Promise(r => setTimeout(r, 200));
-    }
-  };
-  await Promise.all([worker(), worker()]);
-  photoRun = null;
-  Object.keys(aPhotoURLs).forEach(k => { if (aPhotoURLs[k].startsWith("blob:")) URL.revokeObjectURL(aPhotoURLs[k]); delete aPhotoURLs[k]; });
-  const miss = done - found - had;
-  say(`${run.stop ? "Fermato" : "Fatto"}: ${found} ${found === 1 ? "foto nuova" : "foto nuove"}${had ? `, ${had} avevano già la foto` : ""}${miss ? `, ${miss} senza foto trovata (per loro usa Modifica nella loro pagina)` : ""}.`);
-  if (state.view === "statistiche" && state.statsSub === "musicista") renderStats();
-}
 function openArtistPhotosMenu(){
   const names = [...new Set(state.discs.map(d => (d.artist || "").trim()).filter(a => a && !/^(various|various artists|aa\.?\s?vv\.?|artisti vari)$/i.test(a)))].sort((a, b) => a.localeCompare(b, "it"));
   $("menu").innerHTML = `<h3>Foto degli artisti</h3>
@@ -1210,7 +1128,6 @@ async function deleteArtistPhoto(){
   }
 $("viewArtist").addEventListener("click", async e => {
   if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
-  const pl = e.target.closest("[data-person]"); if (pl){ const y = window.scrollY; return openArtist(pl.dataset.person, { view: "artista", artist: state.artist, title: state.artist, scroll: y, parent: state.artistReturn }); }
   const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
   if (e.target.closest("#aEdit")) return openArtistEdit();
 
@@ -1474,19 +1391,17 @@ function groups(kind){
     else if (kind === "anno") keys = [d.year ? String(d.year) : "Anno sconosciuto"];
     else if (kind === "decennio") keys = [d.year ? `Anni ${String(Math.floor(d.year / 10) * 10)}` : "Anno sconosciuto"];
     else if (kind === "voto") keys = [Number(d.rating) > 0 ? String(Math.round(Number(d.rating) * 2) / 2) : "Senza voto"];
-    else if (kind === "musicista") keys = [...new Map(lineupPeople(d.lineup).filter(p => akey(p.name) !== akey(d.artist)).map(p => [akey(p.name), p.name])).values()];
     else keys = [d.vinyl ? d.vinyl.trim().replace(/^./, c => c.toUpperCase()) : "Non indicato"];
-    for (const k of keys){ const kk = kind === "artista" || kind === "musicista" ? akey(k) : k; if (!m.has(kk)) m.set(kk, { label: k, items: [] }); m.get(kk).items.push(d); }
+    for (const k of keys){ const kk = kind === "artista" ? akey(k) : k; if (!m.has(kk)) m.set(kk, { label: k, items: [] }); m.get(kk).items.push(d); }
   }
   const arr = [...m.entries()].map(([key, v]) => ({ key, label: v.label, items: v.items.sort(discSort) }));
   if (kind === "anno") return arr.sort((a,b) => (a.label === "Anno sconosciuto") - (b.label === "Anno sconosciuto") || Number(a.label) - Number(b.label));
   if (kind === "decennio") return arr.sort((a,b) => a.label.localeCompare(b.label));
   if (kind === "voto") return arr.sort((a,b) => (a.key === "Senza voto") - (b.key === "Senza voto") || Number(b.key) - Number(a.key));
-  if (kind === "musicista") return arr.sort((a,b) => sortName(mn(a.label)).localeCompare(sortName(mn(b.label)), "it"));
   if (kind === "artista" && getMeta().artistSort === "alfa") return arr.sort((a,b) => sortName(a.label).localeCompare(sortName(b.label), "it"));
   return arr.sort((a,b) => (/^(Senza|Non indicato)/.test(a.label) - /^(Senza|Non indicato)/.test(b.label)) || (b.items.length - a.items.length) || a.label.localeCompare(b.label, "it"));
 }
-const SUBS = { genere: "Per genere", artista: "Per artista", musicista: "Per musicista", data: "Per data di uscita", voto: "Per voto" };
+const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita", voto: "Per voto" };
 const DATE_SUBS = { anno: "Per anno", decennio: "Per decennio" };
 const STAT_TITLES = { ...SUBS, ...DATE_SUBS };
 function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
@@ -1515,9 +1430,8 @@ function renderStats(){
     $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ ${DATE_SUBS[sub] ? SUBS.data : "Statistiche"}</button><h2 style="margin-top:8px">${STAT_TITLES[sub]}</h2>
       ${sub === "artista" ? (() => { const al = getMeta().artistSort === "alfa"; return `<div class="sortseg"><button data-sort="num" class="${al ? "" : "on"}">Per numero di dischi</button><button data-sort="alfa" class="${al ? "on" : ""}">Alfabetico</button></div>`; })() : ""}
       ${sub === "voto" ? (() => { const r = coll.filter(d => Number(d.rating) > 0); const avg = r.length ? r.reduce((s, d) => s + Number(d.rating), 0) / r.length : 0; return `<div class="stat-mini" style="grid-template-columns:repeat(3,1fr)"><div><b>${r.length ? avg.toFixed(1).replace(".", ",") : "–"}</b>voto medio</div><div><b>${r.length}</b>con voto</div><div><b>${coll.length - r.length}</b>senza voto</div></div>`; })() : ""}
-      ${sub === "musicista" ? `<div class="vbtns" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px"><button class="btn ghost small" id="sMusPhotos">${photoRun ? "Ferma la ricerca delle foto" : "Cerca le foto dei musicisti"}</button></div><p class="hint" id="sMusMsg">${esc(state.musMsg || "")}</p>` : ""}
-      <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : sub === "musicista" ? "In ordine alfabetico per cognome. Tocca un musicista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
-      ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${sub === "voto" && g.key !== "Senza voto" ? `<span class="rstars vstars">${starsHTML(Number(g.key))}</span>` : esc(sub === "musicista" ? mn(g.label) : g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
+      <p class="note">${gs.length} voci. ${sub === "artista" ? "Tocca un artista per aprire la sua pagina." : "Tocca una riga per vedere i dischi."}</p>
+      ${gs.map(g => { const open = state.statsOpen === g.key; return `<div class="grp${open ? " open" : ""}"><button class="grow" data-k="${esc(g.key)}" data-l="${esc(g.label)}"><span class="y">${sub === "voto" && g.key !== "Senza voto" ? `<span class="rstars vstars">${starsHTML(Number(g.key))}</span>` : esc(g.label)}</span><span class="track"><span class="fill" style="width:${Math.max(3, g.items.length / max * 100)}%"></span></span><span class="n">${g.items.length}</span></button>
         ${open ? `<div class="grp-list">${g.items.map(d => `<button class="grp-item" data-id="${esc(d.id)}"><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}</span></button>`).join("")}</div>` : ""}</div>`; }).join("")}</div>`;
     return;
   }
@@ -1534,13 +1448,11 @@ $("viewStats").addEventListener("click", e => {
   if (e.target.closest("#sBack")) return statsUp();
   if (e.target.closest("#sBulk")) return bulkRefresh();
   if (e.target.closest("#sCrit")) return openCriteria();
-  if (e.target.closest("#sMusPhotos")) return musicianPhotos();
   const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
   const so = e.target.closest(".sortseg button"); if (so){ setMeta("artistSort", so.dataset.sort === "alfa" ? "alfa" : null); renderStats(); return; }
   const it = e.target.closest(".grp-item"); if (it) return openDetail(it.dataset.id);
   const g = e.target.closest(".grow"); if (!g) return;
   if (state.statsSub === "artista") return openArtist(g.dataset.l, { view: "statistiche", title: "Per artista", scroll: window.scrollY });
-  if (state.statsSub === "musicista") return openArtist(g.dataset.l, { view: "statistiche", title: "Per musicista", scroll: window.scrollY });
   state.statsOpen = state.statsOpen === g.dataset.k ? null : g.dataset.k; renderStats();
 });
 
@@ -1786,8 +1698,8 @@ async function openDetail(id){
     ${d.list === "wish" ? `<button class="btn bigact" id="dOrder">Ordinato! Sposta in In arrivo</button><button class="btn ghost bigact" style="margin-top:8px" id="dGot">Mettilo in collezione</button>` : ""}
     ${d.list === "incoming" ? `<button class="btn bigact" id="dGot">Arrivato! Mettilo in collezione</button>` : ""}
     ${(d.genres || []).length ? `<div class="dsec"><h4>Genere</h4><div class="box">${d.genres.map(esc).join(", ")}</div></div>` : ""}
-    ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${producerHTML(d.producer)}</div></div>` : ""}
-    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box">${lineupHTML(d.lineup)}</div></div>` : ""}
+    ${d.producer ? `<div class="dsec"><h4>Produttore</h4><div class="box">${esc(d.producer)}</div></div>` : ""}
+    ${d.lineup ? `<div class="dsec"><h4>Line up</h4><div class="box" style="white-space:pre-line">${esc(d.lineup)}</div></div>` : ""}
     ${d.tracks ? `<div class="dsec"><h4>Tracklist</h4>${tracksHTML(d.tracks)}</div>` : ""}
     ${featText(d) ? `<div class="dsec"><h4>Caratteristiche disco</h4><div class="box" style="white-space:pre-line">${esc(featText(d))}</div></div>` : ""}
     ${d.notes ? `<div class="dsec"><h4>Note</h4><div class="box">${esc(d.notes)}</div></div>` : ""}
@@ -1803,7 +1715,6 @@ async function openDetail(id){
   $("dClose").onclick = () => { $("detOv").hidden = true; backToUnlinked(); };
   $("dBack").onclick = () => $("dClose").click();
   $("dEdit").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openForm(d, d.list || null); };
-  $("det").querySelectorAll("[data-person]").forEach(b => b.onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(b.dataset.person, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); });
   $("dArtist").onclick = () => { $("detOv").hidden = true; state.fromUnlinked = false; openArtist(d.artist, { view: state.view, id: d.id, title: d.album, scroll: window.scrollY, artist: state.artist }); };
   $("dDel").onclick = async () => {
     if (!(await askConfirm("Eliminare il disco?", `«${d.album}» di ${d.artist} verrà eliminato.`, "Elimina", true))) return;
