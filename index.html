@@ -282,6 +282,13 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .grow .n{text-align:right;font-weight:600}
 .grp.open .grow{border-color:var(--accent);border-radius:14px 14px 0 0}
 .grp-list{background:#1a1410;border:1px solid var(--accent);border-top:0;border-radius:0 0 14px 14px;padding:4px 12px 10px}
+.tl{border-left:2px solid #4a3b2b;margin-left:6px;padding-left:12px}
+.tl-year{font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:600;margin:16px 0 4px;position:relative}
+.tl-year::before{content:"";position:absolute;left:-19px;top:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);transform:translateY(-50%)}
+.grp-item.tl-item{display:flex;gap:12px;align-items:baseline}
+.grp-item.tl-item .tl-date{flex:0 0 86px;margin:0;color:var(--accent);font-size:13px;font-variant-numeric:tabular-nums}
+.grp-item.tl-item .tl-txt{display:block;margin:0;color:var(--ink);font-size:inherit;min-width:0}
+.grp-item.tl-item .tl-txt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grp-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #3d3226;padding:9px 2px;color:var(--ink);cursor:pointer;font:inherit}
 .grp-item b{display:block;font-size:13.5px}
 .grp-item span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -518,7 +525,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.80";
+const APP_VERSION = "1.81";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1404,7 +1411,7 @@ function groups(kind){
 const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita", voto: "Per voto" };
 const DATE_SUBS = { anno: "Per anno", decennio: "Per decennio" };
 const STAT_TITLES = { ...SUBS, ...DATE_SUBS };
-function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
+function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] || state.statsSub === "timeline" ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
 const subcardHTML = (k, l, n) => `<button class="subcard" data-sub="${k}"><span class="t">${l}</span><span class="s">${n}</span><span class="chev" style="font-size:22px">›</span></button>`;
 function renderStats(){
   const coll = collection();
@@ -1422,7 +1429,23 @@ function renderStats(){
   if (sub === "data"){
     $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">${SUBS.data}</h2>
       <p class="note">Scegli come raggruppare i dischi per data di uscita.</p>
-      ${Object.entries(DATE_SUBS).map(([k, l]) => subcardHTML(k, l, groups(k).length)).join("")}</div>`;
+      ${Object.entries(DATE_SUBS).map(([k, l]) => subcardHTML(k, l, groups(k).length)).join("")}
+      ${subcardHTML("timeline", "Linea temporale", coll.length)}</div>`;
+    return;
+  }
+  if (sub === "timeline"){
+    const key = d => d.releaseDate || (d.year ? `${d.year}-00-00` : "9999");
+    const list = coll.slice().sort((a, b) => key(a).localeCompare(key(b)) || String(a.artist).localeCompare(String(b.artist), "it") || String(a.album).localeCompare(String(b.album), "it"));
+    let lastY = null, h = "";
+    for (const d of list){
+      const y = d.releaseDate ? d.releaseDate.slice(0, 4) : d.year ? String(d.year) : "Data sconosciuta";
+      if (y !== lastY){ h += `<div class="tl-year">${esc(y)}</div>`; lastY = y; }
+      h += `<button class="grp-item tl-item" data-id="${esc(d.id)}"><span class="tl-date">${d.releaseDate ? fmtDate(d.releaseDate) : d.year ? String(d.year) : "–"}</span><span class="tl-txt"><b>${esc(d.album)}</b><span>${esc(d.artist)}</span></span></button>`;
+    }
+    const noDay = list.filter(d => !d.releaseDate && d.year).length, noDate = list.filter(d => !d.releaseDate && !d.year).length;
+    $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ ${SUBS.data}</button><h2 style="margin-top:8px">Linea temporale</h2>
+      <p class="note">${list.length === 1 ? "1 disco" : list.length + " dischi"} in ordine di uscita${noDay ? `; ${noDay === 1 ? "1 ha" : noDay + " hanno"} solo l'anno` : ""}${noDate ? `; ${noDate === 1 ? "1 è" : noDate + " sono"} senza data` : ""}${noDay || noDate ? " (puoi completare da Modifica)" : ""}. Tocca un disco per aprirlo.</p>
+      <div class="tl">${h}</div></div>`;
     return;
   }
   if (sub){
