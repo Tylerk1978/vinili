@@ -31,6 +31,7 @@ header{max-width:1100px;margin:0 auto;padding:calc(26px + env(safe-area-inset-to
 h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(30px,7vw,44px);margin:0;line-height:1;cursor:pointer}
 .sub{color:var(--muted);font-size:14px;margin-top:6px}
 .hbtns{display:flex;gap:8px;align-items:center}
+.menu .item.folder{font-weight:600}
 .iconbtn{width:42px;height:42px;border-radius:999px;border:1px solid #5d4c39;background:transparent;color:var(--ink);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn.back{font-size:28px;padding-bottom:3px}
 .btn{appearance:none;border:0;border-radius:999px;padding:11px 18px;font-weight:600;font-size:14px;cursor:pointer;background:var(--accent);color:#2a1d0f;white-space:nowrap}
@@ -335,7 +336,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
       <div class="sub" id="sub">&nbsp;</div>
     </div>
   </div>
-  <div class="hbtns"><button class="iconbtn" id="menuBtn" aria-label="Menu">⋯</button><button class="iconbtn" id="scanBtn" aria-label="Scansiona codice a barre" hidden>📷</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button></div>
+  <div class="hbtns"><button class="iconbtn" id="menuBtn" aria-label="Impostazioni"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="iconbtn" id="scanBtn" aria-label="Scansiona codice a barre" hidden>📷</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button></div>
 </header>
 
 <section id="viewHome" class="home">
@@ -525,7 +526,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.81";
+const APP_VERSION = "1.82";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -2111,7 +2112,7 @@ function openWikiFill(){
     <div class="ok" id="wkProg"></div><div class="err" id="wkErr"></div>
     <div class="actions">${none ? `<button class="btn ghost" id="wkReset">Riprova anche quelli</button>` : ""}<button class="btn ghost" id="wkBack">Indietro</button>${n ? `<button class="btn" id="wkGo">Completa</button>` : ""}</div>`;
   $("menuOv").hidden = false; $("menu").scrollTop = 0;
-  $("wkBack").onclick = () => { if (wkRun) wkRun.stop = true; openMenu(); };
+  $("wkBack").onclick = () => { if (wkRun) wkRun.stop = true; $("menuOv").hidden = true; };
   if ($("wkReset")) $("wkReset").onclick = () => { setMeta("wikiNone2", null); openWikiFill(); };
   if (!$("wkGo")) return;
   $("wkGo").onclick = async () => {
@@ -2490,7 +2491,7 @@ function backupBannerText(m){
 }
 $("homeBanner").addEventListener("click", async e => {
   if (e.target.id === "bkLater"){ setMeta("snoozeUntil", snoozeTomorrow()); render(); }
-  if (e.target.id === "bkNow"){ openMenu(); await exportBackup(); }
+  if (e.target.id === "bkNow"){ openMenu("", "backup"); await exportBackup(); }
 });
 function showUnlinked(){
   state.fromUnlinked = false;
@@ -2505,31 +2506,46 @@ function showUnlinked(){
   $("menu").querySelectorAll(".grp-item").forEach(b => b.onclick = async () => { $("menuOv").hidden = true; await openDetail(b.dataset.id); state.fromUnlinked = true; });
 }
 function backToUnlinked(){ if (state.fromUnlinked){ state.fromUnlinked = false; showUnlinked(); } }
-function openMenu(msg){
-  $("menu").innerHTML = `
-    <h3>Menu</h3>
-    <p>I dischi sono salvati su questo dispositivo e funzionano anche offline.</p>
-    <button class="item" id="mExport">Esporta backup<small>${state.discs.length} dischi in un file .json · ${esc(lastBackupText())}</small></button>
-    <button class="item" id="mImport">Importa backup<small>Sostituisce la collezione di questo dispositivo</small></button>
-    <button class="item" id="mSnap">Ripristina una copia automatica<small>L'app salva da sola una copia al giorno e tiene le ultime 7</small></button>
-    <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
-    <button class="item" id="mUnlinked">Dischi da collegare a Discogs<small>${(n => n ? `${n === 1 ? "1 disco" : n + " dischi"} in collezione senza stampa Discogs` : "Tutti i dischi in collezione sono collegati")(collection().filter(d => !d.discogsId).length)}</small></button>
-    <button class="item" id="mWiki">Completa i dati da Wikipedia<small>Data, durata, produttore e line up, solo dove mancano · serve internet</small></button>
-    <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>
+let menuFolder = null;
+function openMenu(msg, folder){
+  if (folder !== undefined) menuFolder = folder;
+  const f = menuFolder;
+  const nUnl = collection().filter(d => !d.discogsId).length;
+  let body;
+  if (f === "backup") body = `
+    <button class="backlink" id="mUp" style="font-size:15px">‹ Impostazioni</button>
+    <h3 style="margin-top:6px">Backup</h3>
+    <button class="item" id="mExport">Esporta backup<small>${state.discs.length === 1 ? "1 disco" : state.discs.length + " dischi"} in un file .json · ${esc(lastBackupText())}</small></button>
     <button class="item" id="mCsv">Esporta in Excel<small>File .csv con tutti i dischi, da aprire con Excel o Numbers</small></button>
+    <button class="item" id="mImport">Importa backup<small>Sostituisce la collezione di questo dispositivo</small></button>
+    <button class="item" id="mSnap">Ripristina una copia automatica<small>L'app salva da sola una copia al giorno e tiene le ultime 7</small></button>`;
+  else if (f === "discogs") body = `
+    <button class="backlink" id="mUp" style="font-size:15px">‹ Impostazioni</button>
+    <h3 style="margin-top:6px">Discogs</h3>
+    <button class="item" id="mDiscogs">Discogs<small>${getMeta().discogsToken ? "Collegato: la scansione cerca prima su Discogs" : "Inserisci il codice personale per cercare anche su Discogs"}</small></button>
+    <button class="item" id="mUnlinked">Dischi da collegare a Discogs<small>${nUnl ? `${nUnl === 1 ? "1 disco" : nUnl + " dischi"} in collezione senza stampa Discogs` : "Tutti i dischi in collezione sono collegati"}</small></button>`;
+  else body = `
+    <h3>Impostazioni</h3>
+    <p>I dischi sono salvati su questo dispositivo e funzionano anche offline.</p>
+    <button class="item folder" id="mFBackup">📁 Backup<small>Esporta backup · Esporta in Excel · Importa backup · Ripristina una copia automatica</small></button>
+    <button class="item folder" id="mFDiscogs">📁 Discogs<small>Codice personale · Dischi da collegare a Discogs</small></button>
+    <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>`;
+  $("menu").innerHTML = body + `
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
     <div class="actions"><button class="btn ghost" id="mClose">Chiudi</button></div>
-    <p style="text-align:center;font-size:12px;margin-top:14px">Versione ${APP_VERSION}</p>`;
-  $("menuOv").hidden = false;
-  $("mClose").onclick = () => { $("menuOv").hidden = true; };
-  $("mExport").onclick = () => exportBackup();
-  $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
-  $("mUnlinked").onclick = showUnlinked;
-  $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
-  $("mSnap").onclick = openSnapshots;
-  $("mText").onclick = openTextSize;
-  $("mWiki").onclick = openWikiFill;
-  $("mDiscogs").onclick = () => {
+    ${f ? "" : `<p style="text-align:center;font-size:12px;margin-top:14px">Versione ${APP_VERSION}</p>`}`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("mClose").onclick = () => { $("menuOv").hidden = true; menuFolder = null; };
+  if ($("mUp")) $("mUp").onclick = () => openMenu("", null);
+  if ($("mFBackup")) $("mFBackup").onclick = () => openMenu("", "backup");
+  if ($("mFDiscogs")) $("mFDiscogs").onclick = () => openMenu("", "discogs");
+  if ($("mText")) $("mText").onclick = openTextSize;
+  if ($("mExport")) $("mExport").onclick = () => exportBackup();
+  if ($("mImport")) $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
+  if ($("mCsv")) $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
+  if ($("mSnap")) $("mSnap").onclick = openSnapshots;
+  if ($("mUnlinked")) $("mUnlinked").onclick = showUnlinked;
+  if ($("mDiscogs")) $("mDiscogs").onclick = () => {
     const cur = getMeta().discogsToken || "";
     $("menu").innerHTML = `<h3>Discogs</h3>
       <p>Con il tuo codice personale Discogs la scansione trova quasi tutti i vinili, compresi colore ed edizione. Il codice resta solo su questo telefono e non finisce nel backup.</p>
@@ -2547,7 +2563,7 @@ function openMenu(msg){
     };
   };
 }
-$("menuBtn").onclick = () => openMenu();
+$("menuBtn").onclick = () => openMenu("", null);
 $("menuOv").addEventListener("click", e => { if (e.target.id === "menuOv") $("menuOv").hidden = true; });
 document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (!$("cfOv").hidden) return $("cfNo").click(); $("formOv").hidden = true; $("detOv").hidden = true; $("menuOv").hidden = true; } });
 
