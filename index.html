@@ -183,7 +183,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .picks button{padding:0;border:2px solid transparent;border-radius:6px;background:#2a221a;cursor:pointer;overflow:hidden;text-align:left;color:var(--ink)}
 .picks button:hover{border-color:var(--accent)}
 .picks img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
-.picks small{display:block;font-size:10px;line-height:1.25;padding:4px 5px;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.picks small i{font-style:normal;opacity:.75}
+.picks small{display:block;font-size:10px;line-height:1.25;padding:4px 5px;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
 
 /* Scheda disco */
 .dtop{display:flex;gap:16px;align-items:flex-start}
@@ -526,7 +527,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.82";
+const APP_VERSION = "1.84";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -578,16 +579,6 @@ async function photoToBlob(file){
   } finally { URL.revokeObjectURL(url); }
 }
 // Ricerca online: Apple Music (copertina, anno, genere, tracklist)
-async function searchAlbums(artist, album){
-  const term = `${artist} ${album}`.trim();
-  const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&country=it&limit=12`);
-  if (!r.ok) return [];
-  const j = await r.json();
-  return (j.results || []).filter(x => x.artworkUrl100).map(x => ({
-    id: x.collectionId, album: x.collectionName, artist: x.artistName, year: parseInt((x.releaseDate || "").slice(0,4), 10) || null,
-    genre: x.primaryGenreName || null, art: x.artworkUrl100.replace(/\/\d+x\d+bb\./, "/600x600bb."), thumb: x.artworkUrl100.replace(/\/\d+x\d+bb\./, "/200x200bb.")
-  }));
-}
 async function fetchTracks(collectionId){
   try {
     const r = await fetch(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song&country=it`);
@@ -991,10 +982,36 @@ function jsonp(url){
   });
 }
 async function deezerCandidates(name){
+  const out = [];
+  for (const q of [`artist:"${name}"`, name]){
+    try {
+      const d = await jsonp("https://api.deezer.com/search/artist?limit=10&q=" + encodeURIComponent(q));
+      for (const a of (d && d.data || [])) if (a.picture_xl && !/\/artist\/\//.test(a.picture_xl) && !out.some(o => o.src === a.picture_xl))
+        out.push({ src: a.picture_xl, thumb: a.picture_medium || a.picture_xl, label: a.name, from: "Deezer", exact: nk(a.name) === nk(name), fans: a.nb_fan || 0 });
+    } catch(e){}
+    if (out.some(o => o.exact)) break;
+  }
+  return out;
+}
+// TheAudioDB: foto della band in alta risoluzione (anche più di una)
+async function audiodbCandidates(name){
   try {
-    const d = await jsonp("https://api.deezer.com/search/artist?limit=10&q=" + encodeURIComponent(name));
-    return (d && d.data || []).filter(a => a.picture_xl && !/\/artist\/\//.test(a.picture_xl))
-      .map(a => ({ src: a.picture_xl, thumb: a.picture_medium || a.picture_xl, label: a.name, from: "Deezer", exact: nk(a.name) === nk(name), fans: a.nb_fan || 0 }));
+    const r = await fetch("https://www.theaudiodb.com/api/v1/json/2/search.php?s=" + encodeURIComponent(name)); if (!r.ok) return [];
+    const j = await r.json(), out = [];
+    for (const a of (j.artists || []).filter(a => nk(a.strArtist) === nk(name) || nk(a.strArtistAlternate || "") === nk(name)).slice(0, 2))
+      for (const f of ["strArtistThumb", "strArtistFanart", "strArtistFanart2", "strArtistFanart3", "strArtistFanart4", "strArtistWideThumb"])
+        if (a[f] && !out.some(o => o.src === a[f])) out.push({ src: a[f], thumb: a[f] + "/preview", label: a.strArtist, from: "TheAudioDB", exact: true });
+    return out;
+  } catch(e){ return []; }
+}
+// Discogs (con il tuo codice): tutte le foto della pagina dell'artista
+async function discogsArtistCandidates(name){
+  const tok = dgToken(); if (!tok) return [];
+  try {
+    const r = await fetch(`https://api.discogs.com/database/search?type=artist&q=${encodeURIComponent(name)}&per_page=5&token=${encodeURIComponent(tok)}`); if (!r.ok) return [];
+    const hit = ((await r.json()).results || []).find(x => nk(String(x.title || "").replace(/\s\(\d+\)$/, "")) === nk(name)); if (!hit) return [];
+    const a = await (await fetch(`https://api.discogs.com/artists/${hit.id}?token=${encodeURIComponent(tok)}`)).json();
+    return (a.images || []).filter(im => im.uri && !/spacer\.gif/.test(im.uri)).slice(0, 10).map(im => ({ src: im.uri, thumb: im.uri150 || im.uri, label: a.name || name, from: "Discogs", exact: true }));
   } catch(e){ return []; }
 }
 async function wikiPages(lang, params){
@@ -1003,14 +1020,13 @@ async function wikiPages(lang, params){
   const j = await r.json(); return Object.values(j.query?.pages || {}).filter(p => !("missing" in p));
 }
 async function wikiCandidates(name){
-  const out = [];
+  const out = [], add = p => { if (p.thumbnail && MUSIC_RE.test(p.description || "") && !out.some(o => o.src === p.thumbnail.source)) out.push({ src: p.thumbnail.source, thumb: p.thumbnail.source, label: p.title, from: "Wikipedia" }); };
   for (const lang of ["en", "it"]){
     const suff = lang === "en" ? ["band", "musician", "singer", "rapper", "group"] : ["gruppo musicale", "cantante", "musicista"];
-    try {
-      const pages = await wikiPages(lang, "titles=" + encodeURIComponent([...suff.map(x => `${name} (${x})`), name].join("|")));
-      for (const p of pages) if (p.thumbnail && MUSIC_RE.test(p.description || "") && !out.some(o => o.src === p.thumbnail.source)) out.push({ src: p.thumbnail.source, thumb: p.thumbnail.source, label: p.title, from: "Wikipedia" });
-    } catch(e){}
-    if (out.length) break;
+    try { (await wikiPages(lang, "titles=" + encodeURIComponent([...suff.map(x => `${name} (${x})`), name].join("|")))).forEach(add); } catch(e){}
+  }
+  if (!out.length){ // nessuna pagina con il titolo esatto: provo con la ricerca di Wikipedia
+    try { (await wikiPages("en", "generator=search&gsrlimit=4&gsrsearch=" + encodeURIComponent(`${name} band OR musician`))).filter(p => nk(p.title.replace(/\s*\(.*\)$/, "")) === nk(name)).forEach(add); } catch(e){}
   }
   return out;
 }
@@ -1062,10 +1078,11 @@ async function autoArtistPhoto(name){
 }
 async function openPhotoPicker(name){
   $("menu").innerHTML = `<h3>Foto di ${esc(name)}</h3><p>Cerco le foto…</p>`; $("menuOv").hidden = false;
-  const [dz, wk] = await Promise.all([deezerCandidates(name), wikiCandidates(name)]);
-  const list = [...dz.filter(x => x.exact), ...dz.filter(x => !x.exact).slice(0, 3), ...wk];
+  $("menu").innerHTML = `<h3>Foto di ${esc(name)}</h3><p>Cerco su Deezer, TheAudioDB${dgToken() ? ", Discogs" : ""} e Wikipedia…</p>`;
+  const [dz, adb, dg, wk] = await Promise.all([deezerCandidates(name), audiodbCandidates(name), discogsArtistCandidates(name), wikiCandidates(name)]);
+  const seen = new Set(), list = [...dz.filter(x => x.exact).sort((a, b) => b.fans - a.fans), ...adb, ...dg, ...wk, ...dz.filter(x => !x.exact).slice(0, 3)].filter(c => !seen.has(c.src) && seen.add(c.src));
   $("menu").innerHTML = `<h3>Foto di ${esc(name)}</h3>
-    <p>${list.length ? "Tocca la foto che vuoi usare." : "Non ho trovato foto online per questo artista. Puoi caricarne una tua."}</p>
+    <p>${list.length ? `${list.length === 1 ? "1 foto trovata" : list.length + " foto trovate"}: tocca quella che vuoi usare.` : "Non ho trovato foto online per questo artista. Puoi caricarne una tua."}</p>
     <div class="pgrid">${list.map((c, i) => `<button type="button" data-i="${i}"><img src="${esc(c.thumb)}" alt="" loading="lazy" onerror="this.parentNode.remove()"><span>${esc(c.label)} · ${c.from}</span></button>`).join("")}</div>
     <div class="err" id="ppErr"></div>
     <div class="actions"><button class="btn ghost" id="ppNo">Chiudi</button></div>`;
@@ -1114,7 +1131,7 @@ function openArtistEdit(){
     <h3>Modifica</h3>
     <p>Foto di ${esc(state.artist)}</p>
     <button class="item" id="aeUpload">Carica una foto<small>Dalla libreria foto del telefono</small></button>
-    <button class="item" id="aeOnline">Scegli una foto online<small>Da Deezer e Wikipedia · serve internet</small></button>
+    <button class="item" id="aeOnline">Scegli una foto online<small>Da Deezer, TheAudioDB, Discogs e Wikipedia · serve internet</small></button>
     ${has ? `<button class="item" id="aeDel">Togli la foto<small>Ti chiedo conferma prima di eliminarla</small></button>` : ""}
     <button class="item" id="aeBio">Carica biografia<small>Da Wikipedia · sostituisce il testo di Info (ti chiedo conferma)</small></button>
     <div class="actions"><button type="button" class="btn ghost" id="aeClose">Annulla</button></div>`;
@@ -1629,9 +1646,15 @@ async function lookupBarcode(code){
         return { source: "MusicBrainz", artist: (hit["artist-credit"] || []).map(a => a.name + (a.joinphrase || "")).join("").trim(), album: hit.title, year,
           genres: [...new Set(genres)].slice(0, 3), vinyl: null, vinylNotes: null,
           tracks: (full?.media || []).flatMap(m => (m.tracks || []).map(t => t.title)).join("\n") || null,
-          cover: `https://coverartarchive.org/release/${hit.id}/front-500` };
+          cover: null, mbCover: true };
       }
     }
+  } catch(e){}
+  try {
+    const d = await jsonp(`https://api.deezer.com/album/upc:${code}`);
+    if (d && !d.error && d.title) return { source: "Deezer", artist: d.artist?.name || "", album: d.title, year: parseInt((d.release_date || "").slice(0,4), 10) || null,
+      genres: (d.genres?.data || []).map(g => g.name).slice(0, 3), vinyl: null, vinylNotes: null,
+      tracks: (d.tracks?.data || []).map(t => t.title).join("\n") || null, cover: d.cover_xl || d.cover_big || null };
   } catch(e){}
   try {
     const r = await fetch(`https://itunes.apple.com/lookup?upc=${code}&entity=song&country=it`);
@@ -1656,6 +1679,7 @@ function applyLookup(code, info){
   const d = dup(info.artist, info.album, code);
   const where = d ? (d.list === "wish" ? "nella wishlist" : d.list === "incoming" ? "tra i dischi in arrivo" : "nella collezione") : "";
   $("fScanHint").innerHTML = `Trovato su <b>${esc(info.source)}</b>: controlla i dati e premi Salva.` + (d ? `<br><span style="color:#e08a7c">Attenzione: «${esc(d.album)}» di ${esc(d.artist)} è già ${where}.</span>` : "");
+  if (!info.cover && !state.pending && (info.artist || info.album)) showCoverPicks(info.artist, info.album, "Non ho la copertina di questa stampa: tocca quella giusta tra queste.");
 }
 $("fScan").onclick = () => openScanner();
 $("scanBtn").onclick = () => { openForm(null, state.view === "wishlist" ? "wish" : state.view === "inarrivo" ? "incoming" : null); openScanner(); };
@@ -1900,30 +1924,25 @@ $("fArtistBtn").addEventListener("mousedown", e => e.preventDefault());
 $("fArtistBtn").onclick = () => { const box = $("fArtistAc"); if (!box.hidden) { box.hidden = true; return; } drawArtistAc(true); };
 $("fArtistAc").addEventListener("mousedown", e => e.preventDefault());
 $("fArtistAc").onclick = e => { const b = e.target.closest("button[data-a]"); if (b) pickArtist(b.dataset.a); };
-$("fSearch").onclick = async () => {
-  const artist = $("fArtist").value.trim(), album = $("fAlbum").value.trim();
-  $("fPicks").innerHTML = "";
-  if (!artist && !album){ $("fHint").textContent = "Scrivi prima artista e album."; return; }
-  if (!navigator.onLine){ $("fHint").textContent = "Serve la connessione a internet. Puoi usare una foto."; return; }
-  $("fHint").textContent = "Cerco…";
-  let res = []; try { res = await searchAlbums(artist, album); } catch(e){}
-  if (!res.length){ $("fHint").textContent = "Non ho trovato niente. Puoi fotografare la copertina con «Carica foto»."; return; }
-  $("fHint").textContent = "Tocca l'album giusto: prendo copertina e, se mancano, anno, genere e tracklist.";
-  state.results = res;
-  $("fPicks").innerHTML = res.map((r, i) => `<button type="button" data-i="${i}"><img src="${esc(r.thumb)}" alt="" loading="lazy"><small>${esc(r.album)}${r.year ? " · " + r.year : ""}</small></button>`).join("");
-};
+$("fSearch").onclick = () => showCoverPicks($("fArtist").value.trim(), $("fAlbum").value.trim());
 $("fPicks").onclick = async e => {
   const b = e.target.closest("button[data-i]"); if (!b) return;
   const r = state.results[Number(b.dataset.i)];
   state.pending = { type: "url", url: r.art };
-  $("fPicks").innerHTML = ""; $("fHint").textContent = "Copertina scelta. Recupero i dati…";
-  if (!$("fYear").value && r.year) $("fYear").value = r.year;
+  $("fPicks").innerHTML = ""; drawFormCover();
   if (!$("fAlbum").value.trim()) $("fAlbum").value = r.album;
   if (!$("fArtist").value.trim()) $("fArtist").value = r.artist;
-  if (r.genre && !state.fgenres.length){ const ex = allGenres().find(x => x.toLowerCase() === r.genre.toLowerCase()) || r.genre; state.fgenres = [ex]; drawGenres(); }
-  if (!$("fTracks").value.trim()){ const t = await fetchTracks(r.id); if (t) $("fTracks").value = t; }
-  $("fHint").textContent = "Fatto: controlla i dati e premi Salva.";
-  drawFormCover();
+  $("fHint").textContent = `Copertina scelta (${r.srcName}). Recupero i dati che mancano…`;
+  const x = await srDetails(r), got = [];
+  const set = (id, v, label) => { if (v && !$(id).value.trim()){ $(id).value = v; got.push(label); } };
+  set("fYear", x.date ? fmtDate(x.date) : x.year, "data");
+  if (x.genres.length && !state.fgenres.length){ state.fgenres = x.genres.map(g => allGenres().find(y => y.toLowerCase() === g.toLowerCase()) || g); drawGenres(); got.push("genere"); }
+  if (x.tracks && !$("fTracks").value.trim()){ $("fTracks").value = cleanTracks(x.tracks); got.push("tracklist"); }
+  set("fDuration", x.duration, "durata");
+  set("fProducer", x.producer, "produttore");
+  if (!$("fFeat").value.trim()){ const ft = featText({ vinyl: x.vinyl, discs: x.discs }); if (ft){ $("fFeat").value = ft; got.push("formato"); } }
+  if (x.discogs && !state.formDiscogs && !(state.editing && state.discs.find(d => d.id === state.editing)?.discogsId)){ state.formDiscogs = x.discogs; got.push("collegamento a Discogs"); }
+  $("fHint").textContent = got.length ? `Fatto: aggiunti ${got.join(", ")}. Controlla i dati e premi Salva.` : "Copertina scelta: controlla i dati e premi Salva.";
 };
 $("fPhoto").onclick = () => { $("photoFile").value = ""; $("photoFile").click(); };
 $("photoFile").addEventListener("change", async e => {
@@ -1932,6 +1951,142 @@ $("photoFile").addEventListener("change", async e => {
   catch(err){ $("fHint").textContent = "Non sono riuscita a usare questa immagine."; }
 });
 $("fCoverDel").onclick = () => { state.pending = { type: "remove" }; $("fHint").textContent = "La copertina verrà tolta quando premi Salva."; drawFormCover(); };
+// Ricerca online del disco: Deezer, Apple Music, Discogs (se c'è il codice) e MusicBrainz in parallelo,
+// risultati ordinati per somiglianza ad artista e titolo, copertine nella risoluzione più alta disponibile
+const srKey = s => nk(String(s || "").replace(/\s*[([][^)\]]*(remaster|deluxe|edition|expanded|anniversary|version|reissue|mono|stereo)[^)\]]*[)\]]/gi, ""));
+function srScore(r, artist, album){
+  const A = srKey(artist), B = srKey(album), ra = srKey(r.artist), rb = srKey(r.album);
+  let s = 0;
+  if (A){ if (ra === A) s += 50; else if (ra && (ra.includes(A) || A.includes(ra))) s += 30; else s -= 40; }
+  if (B){ if (rb === B) s += 60; else if (rb && (rb.startsWith(B) || B.startsWith(rb))) s += 35; else if (rb && (rb.includes(B) || B.includes(rb))) s += 20; else s -= 50; }
+  s += { deezer: 6, discogs: 5, apple: 4, musicbrainz: 2 }[r.src] || 0;
+  if (/live|karaoke|tribute|cover|instrumental|single/i.test(r.album) && !/live|karaoke|tribute|cover|instrumental|single/i.test(album)) s -= 15;
+  return s;
+}
+async function srDeezer(artist, album){
+  const q = artist && album ? `artist:"${artist}" album:"${album}"` : `${artist} ${album}`.trim();
+  const tries = [q]; if (artist && album) tries.push(`${artist} ${album}`);
+  const out = [];
+  for (const t of tries){
+    try {
+      const d = await jsonp("https://api.deezer.com/search/album?limit=15&q=" + encodeURIComponent(t));
+      for (const x of d.data || []) if (x.cover_medium) out.push({ src: "deezer", srcName: "Deezer", id: x.id, album: x.title, artist: x.artist?.name || "", year: null,
+        art: x.cover_xl || x.cover_big, thumb: x.cover_medium, discs: null });
+    } catch(e){}
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+async function srApple(artist, album){
+  const out = [];
+  for (const country of ["it", "us"]){
+    try {
+      const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`.trim())}&entity=album&country=${country}&limit=15`);
+      if (!r.ok) continue;
+      const j = await r.json();
+      for (const x of j.results || []) if (x.artworkUrl100) out.push({ src: "apple", srcName: "Apple Music", id: x.collectionId, country, album: x.collectionName, artist: x.artistName,
+        year: parseInt((x.releaseDate || "").slice(0,4), 10) || null, genre: x.primaryGenreName || null,
+        art: x.artworkUrl100.replace(/\/\d+x\d+bb\./, "/1000x1000bb."), thumb: x.artworkUrl100.replace(/\/\d+x\d+bb\./, "/200x200bb.") });
+    } catch(e){}
+    if (out.some(r => srScore(r, artist, album) > 60)) break;
+  }
+  return out;
+}
+async function srDiscogs(artist, album){
+  const tok = dgToken(); if (!tok) return [];
+  const out = [];
+  const p = new URLSearchParams({ token: tok, per_page: "12" }); if (artist) p.set("artist", artist); if (album) p.set("release_title", album);
+  for (const type of ["master", "release"]){
+    try {
+      const q = new URLSearchParams(p); q.set("type", type); if (type === "release") q.set("format", "Vinyl");
+      const r = await fetch(`https://api.discogs.com/database/search?${q}`); if (!r.ok) continue;
+      const j = await r.json();
+      for (const x of j.results || []){
+        if (!x.cover_image || /spacer\.gif/.test(x.cover_image)) continue;
+        const [a, ...rest] = String(x.title || "").split(" - ");
+        out.push({ src: "discogs", srcName: "Discogs", type, id: x.id, album: rest.join(" - ") || x.title, artist: a.replace(/\s\(\d+\)$/, ""), year: parseInt(x.year, 10) || null,
+          genres: [...new Set([...(x.genre || []), ...(x.style || [])])].slice(0, 4), art: x.cover_image, thumb: x.thumb || x.cover_image, hit: x });
+      }
+    } catch(e){}
+  }
+  return out;
+}
+async function srMusicBrainz(artist, album){
+  try {
+    const q = [album && `releasegroup:"${album.replace(/"/g, "")}"`, artist && `artist:"${artist.replace(/"/g, "")}"`].filter(Boolean).join(" AND ");
+    const r = await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=8`); if (!r.ok) return [];
+    const j = await r.json();
+    return (j["release-groups"] || []).filter(g => (g["primary-type"] || "Album") !== "Single").map(g => ({ src: "musicbrainz", srcName: "MusicBrainz", id: g.id, album: g.title,
+      artist: (g["artist-credit"] || []).map(a => a.name + (a.joinphrase || "")).join("").trim(), year: parseInt((g["first-release-date"] || "").slice(0,4), 10) || null,
+      art: `https://coverartarchive.org/release-group/${g.id}/front-1200`, thumb: `https://coverartarchive.org/release-group/${g.id}/front-250`, mbDate: g["first-release-date"] || null }));
+  } catch(e){ return []; }
+}
+async function searchAlbums(artist, album){
+  const all = (await Promise.all([srDeezer(artist, album), srApple(artist, album), srDiscogs(artist, album), srMusicBrainz(artist, album)])).flat();
+  const seen = new Set(), out = [];
+  for (const r of all.map(r => ({ ...r, score: srScore(r, artist, album) })).sort((a, b) => b.score - a.score)){
+    if (r.score < (artist && album ? 30 : 0)) continue;
+    const k = r.art; if (seen.has(k)) continue; seen.add(k);
+    out.push(r); if (out.length >= 18) break;
+  }
+  return out;
+}
+// Dati del risultato scelto (solo quelli disponibili; il modulo riempie poi le caselle vuote)
+async function srDetails(r){
+  const res = { year: r.year || null, date: null, genres: r.genres || (r.genre ? [r.genre] : []), tracks: null, duration: null, producer: null, vinyl: null, discs: null, discogs: null };
+  try {
+    if (r.src === "deezer"){
+      const d = await jsonp(`https://api.deezer.com/album/${r.id}`);
+      if (d && !d.error){
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d.release_date || "")){ res.date = d.release_date; res.year = +d.release_date.slice(0, 4); }
+        res.genres = (d.genres?.data || []).map(g => g.name).slice(0, 3);
+        const tr = d.tracks?.data || [];
+        if (tr.length){ res.tracks = tr.map(t => t.title).join("\n"); }
+        if (d.duration) res.duration = normDuration(`${Math.floor(d.duration / 60)}:${String(d.duration % 60).padStart(2, "0")}`);
+      }
+    } else if (r.src === "apple"){
+      const j = await (await fetch(`https://itunes.apple.com/lookup?id=${r.id}&entity=song&country=${r.country || "it"}`)).json();
+      const songs = (j.results || []).filter(x => x.wrapperType === "track").sort((a,b) => (a.discNumber - b.discNumber) || (a.trackNumber - b.trackNumber));
+      if (songs.length){ res.tracks = songs.map(s => s.trackName).join("\n"); const ms = songs.reduce((t, s) => t + (s.trackTimeMillis || 0), 0); if (ms) { const sec = Math.round(ms / 1000); res.duration = normDuration(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`); } }
+    } else if (r.src === "discogs"){
+      const tok = encodeURIComponent(dgToken());
+      let rel = null;
+      if (r.type === "master"){
+        const m = await (await fetch(`https://api.discogs.com/masters/${r.id}?token=${tok}`)).json();
+        res.year = m.year || res.year;
+        if (m.main_release){ try { const x = await fetch(`https://api.discogs.com/releases/${m.main_release}?token=${tok}`); if (x.ok) rel = await x.json(); } catch(e){} }
+        if (!rel && m.tracklist) res.tracks = m.tracklist.filter(t => !t.type_ || t.type_ === "track").map(t => t.title).join("\n");
+      } else { const x = await fetch(`https://api.discogs.com/releases/${r.id}?token=${tok}`); if (x.ok) rel = await x.json(); }
+      if (rel){
+        const tl = (rel.tracklist || []).filter(t => !t.type_ || t.type_ === "track");
+        res.tracks = res.tracks || tl.map(t => t.title).join("\n") || null;
+        res.duration = tracksDuration(tl);
+        res.producer = [...new Set((rel.extraartists || []).filter(x => /^producer\b/i.test(x.role || "")).map(x => x.name.replace(/\s\(\d+\)$/, "")))].join(", ") || null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rel.released || "") && !/-00/.test(rel.released) && r.type === "release") res.date = rel.released;
+        const vf = (rel.formats || []).find(f => /vinyl/i.test(f.name));
+        if (vf && r.type === "release"){ res.vinyl = vf.text || null; res.discs = parseInt(vf.qty, 10) || null; res.discogs = { id: String(rel.id), info: dgInfoFromRelease(rel) }; }
+        if (!res.genres.length) res.genres = [...new Set([...(rel.genres || []), ...(rel.styles || [])])].slice(0, 4);
+      }
+    } else if (r.src === "musicbrainz"){
+      if (/^\d{4}-\d{2}-\d{2}$/.test(r.mbDate || "")) res.date = r.mbDate;
+      const j = await (await fetch(`https://musicbrainz.org/ws/2/release?release-group=${r.id}&status=official&inc=recordings&fmt=json&limit=5`)).json();
+      const rel = (j.releases || []).find(x => (x.media || []).some(m => /vinyl/i.test(m.format || ""))) || (j.releases || [])[0];
+      if (rel){ res.tracks = (rel.media || []).flatMap(m => (m.tracks || []).map(t => t.title)).join("\n") || null; const ms = (rel.media || []).flatMap(m => m.tracks || []).reduce((t, x) => t + (x.length || 0), 0); if (ms){ const sec = Math.round(ms / 1000); res.duration = normDuration(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`); } }
+    }
+  } catch(e){}
+  return res;
+}
+async function showCoverPicks(artist, album, intro){
+  $("fPicks").innerHTML = "";
+  if (!artist && !album){ $("fHint").textContent = "Scrivi prima artista e album."; return; }
+  if (!navigator.onLine){ $("fHint").textContent = "Serve la connessione a internet. Puoi usare una foto."; return; }
+  $("fHint").textContent = "Cerco su Deezer, Apple Music" + (dgToken() ? ", Discogs" : "") + " e MusicBrainz…";
+  let res = []; try { res = await searchAlbums(artist, album); } catch(e){}
+  if (!res.length){ $("fHint").textContent = "Non ho trovato niente. Controlla come hai scritto artista e titolo, oppure fotografa la copertina con «Carica foto»."; return; }
+  $("fHint").textContent = intro || "Tocca la copertina giusta: prendo l'immagine e, se mancano, data, genere, tracklist e durata.";
+  state.results = res;
+  $("fPicks").innerHTML = res.map((r, i) => `<button type="button" data-i="${i}"><img src="${esc(r.thumb)}" alt="" loading="lazy" onerror="this.closest('button').remove()"><small>${esc(r.album)}${r.year ? " · " + r.year : ""}<br><i>${esc(r.artist)} · ${esc(r.srcName)}</i></small></button>`).join("");
+}
 function parseRelease(v){
   v = String(v || "").trim(); if (!v) return { year: null, date: null };
   const pad = n => String(n).padStart(2, "0"), ok = y => y >= 1900 && y <= 2100;
