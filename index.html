@@ -167,6 +167,10 @@ html.homeview .credits{padding-top:12px;line-height:1.45}
 .gsel span button{appearance:none;background:none;border:0;color:var(--muted);font-size:17px;line-height:1;padding:0 4px;cursor:pointer}
 select.field{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
 .glist{margin-top:14px;border-top:1px solid var(--line)}
+.gpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gpick button{background:var(--field);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer}
+.gpick button.on{background:#5a3f1f;border-color:var(--accent);color:var(--ink)}
+.nglist{max-height:55vh;overflow:auto;margin-top:6px}
 .grow2{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
 .grow2 .gn{flex:1;min-width:0;font-size:15px}
 .grow2 .gn small{color:var(--muted);font-size:12px;margin-left:6px}
@@ -209,8 +213,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .tracks li::marker{color:var(--muted);font-size:calc(11px * var(--ts, 1))}
 .tracks li.side{list-style:none;margin-left:-24px;color:var(--accent);font-weight:600;font-size:12px;letter-spacing:.5px;text-transform:uppercase;margin-top:6px}
 .bigact{width:100%;margin-top:16px}
-.menu .item{display:block;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:14px 16px;margin-top:10px;cursor:pointer;font-size:15px;font-weight:600}
-.menu .item small{display:block;color:var(--muted);font-weight:400;font-size:13px;margin-top:3px}
+#gNoGenre[hidden]{display:none}
+#gNoGenre,.menu .item{display:block;width:100%;text-align:left;background:var(--field);border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:14px 16px;margin-top:10px;cursor:pointer;font-size:15px;font-weight:600}
+#gNoGenre small,.menu .item small{display:block;color:var(--muted);font-weight:400;font-size:13px;margin-top:3px}
 .welcome{max-width:460px;margin:40px auto;text-align:center;background:#211a14;border:1px solid #4a3d2e;border-radius:18px;padding:26px 22px}
 .welcome h2{font-family:"Cormorant Garamond",Georgia,serif;font-size:28px;margin:0 0 8px;font-weight:600}
 .welcome p{color:var(--muted);line-height:1.5;margin:0 0 18px;font-size:15px}
@@ -485,6 +490,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     </div>
     <div class="err" id="gErr"></div>
     <div class="glist" id="gList"></div>
+    <button type="button" class="item" id="gNoGenre" hidden style="margin-top:14px"></button>
     <div class="actions"><button type="button" class="btn" id="gDone">Fatto</button></div>
   </div>
 </div>
@@ -527,7 +533,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.85";
+const APP_VERSION = "1.86";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1814,19 +1820,76 @@ function drawGenreMgr(){
 }
 function cleanGenre(v){ return String(v || "").replace(/\s+/g, " ").trim().slice(0, 30); }
 function setExtra(list){ setMeta("genresExtra", [...new Set(list)].sort((a,b) => a.localeCompare(b, "it"))); }
-function openGenreMgr(){ genEdit = null; $("gNew").value = ""; $("gErr").textContent = ""; drawGenreMgr(); $("genOv").hidden = false; }
-function closeGenreMgr(){ $("genOv").hidden = true; genEdit = null; drawGenres(); }
-$("fGenreMgr").onclick = openGenreMgr;
+let genFromSettings = false;
+function noGenreDiscs(){ return state.discs.filter(d => !(d.genres || []).length).sort((a, b) => sortName(a.artist).localeCompare(sortName(b.artist), "it") || String(a.album).localeCompare(String(b.album), "it")); }
+function drawNoGenreBtn(){
+  const b = $("gNoGenre"); b.hidden = !genFromSettings; if (b.hidden) return;
+  const n = noGenreDiscs().length;
+  b.innerHTML = `Album senza genere<small>${n ? (n === 1 ? "1 album da sistemare" : n + " album da sistemare") : "Nessuno: tutti gli album hanno almeno un genere"}</small>`;
+}
+function openGenreMgr(fromSettings){ genFromSettings = fromSettings === true; genEdit = null; $("gNew").value = ""; $("gErr").textContent = ""; drawGenreMgr(); drawNoGenreBtn(); $("genOv").hidden = false; }
+function closeGenreMgr(){ $("genOv").hidden = true; genEdit = null; if (genFromSettings){ genFromSettings = false; openMenu("", null); } else drawGenres(); }
+$("fGenreMgr").onclick = () => openGenreMgr(false);
+$("gNoGenre").onclick = () => { $("genOv").hidden = true; genEdit = null; openNoGenre(); };
+// Album senza genere: elenco e assegnazione rapida dei generi
+function openNoGenre(msg){
+  const list = noGenreDiscs();
+  const st = d => d.list === "wish" ? " · wishlist" : d.list === "incoming" ? " · in arrivo" : "";
+  $("menu").innerHTML = `<button class="backlink" id="ngBack" style="font-size:15px">‹ Gestione generi</button>
+    <h3 style="margin-top:6px">Album senza genere</h3>
+    <p>${list.length ? `${list.length === 1 ? "1 album" : list.length + " album"} senza genere. Tocca un album per assegnargli uno o più generi.` : "Tutti gli album hanno almeno un genere."}</p>
+    <div class="ok">${esc(msg || "")}</div>
+    <div class="nglist">${list.map(d => `<button type="button" class="grp-item" data-id="${esc(d.id)}"><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}${st(d)}</span></button>`).join("")}</div>
+    <div class="actions"><button class="btn" id="ngDone">Fatto</button></div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("ngBack").onclick = () => { $("menuOv").hidden = true; openGenreMgr(true); };
+  $("ngDone").onclick = () => { $("menuOv").hidden = true; render(); };
+  $("menu").querySelector(".nglist").onclick = e => { const b = e.target.closest("button[data-id]"); if (b) openDiscGenres(b.dataset.id); };
+}
+function openDiscGenres(id){
+  const d = state.discs.find(x => x.id === id); if (!d) return openNoGenre();
+  let sel = [...(d.genres || [])];
+  const draw = () => {
+    const all = [...new Set([...allGenres(), ...sel])].sort((a, b) => a.localeCompare(b, "it"));
+    $("ngPick").innerHTML = all.length ? all.map(g => `<button type="button" data-g="${esc(g)}" class="${sel.includes(g) ? "on" : ""}">${esc(g)}</button>`).join("") : `<span class="hint">Non hai ancora generi: scrivine uno qui sotto.</span>`;
+    $("ngSave").disabled = !sel.length;
+  };
+  $("menu").innerHTML = `<button class="backlink" id="ngBack2" style="font-size:15px">‹ Album senza genere</button>
+    <h3 style="margin-top:6px">${esc(d.album)}</h3><p style="margin-top:-6px">${esc(d.artist)}${d.year ? " · " + d.year : ""}</p>
+    <p>Tocca i generi da assegnare (anche più di uno).</p>
+    <div class="gpick" id="ngPick"></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><input class="field" id="ngNew" placeholder="Nuovo genere, es. grunge" maxlength="30" autocomplete="off" style="flex:1"><button type="button" class="btn small" id="ngAdd">Aggiungi</button></div>
+    <div class="err" id="ngErr"></div>
+    <div class="actions"><button class="btn ghost" id="ngOpen">Apri la scheda</button><button class="btn" id="ngSave">Salva</button></div>`;
+  $("menu").scrollTop = 0; draw();
+  $("ngBack2").onclick = () => openNoGenre();
+  $("ngPick").onclick = e => { const b = e.target.closest("button[data-g]"); if (!b) return; const g = b.dataset.g; sel = sel.includes(g) ? sel.filter(x => x !== g) : [...sel, g]; draw(); };
+  const add = () => {
+    const g = cleanGenre($("ngNew").value); $("ngErr").textContent = ""; if (!g) return;
+    const ex = allGenres().find(x => x.toLowerCase() === g.toLowerCase()) || g;
+    if (!allGenres().includes(ex)) setExtra([...extraGenres(), ex]);
+    if (!sel.includes(ex)) sel.push(ex);
+    $("ngNew").value = ""; draw();
+  };
+  $("ngAdd").onclick = add;
+  $("ngNew").onkeydown = e => { if (e.key === "Enter"){ e.preventDefault(); add(); } };
+  $("ngOpen").onclick = () => { $("menuOv").hidden = true; openDetail(id); };
+  $("ngSave").onclick = () => {
+    if (!sel.length) return;
+    try { patchDisc(id, { genres: sel, updatedAt: new Date().toISOString() }); } catch(err){ $("ngErr").textContent = "Non riesco a salvare: memoria piena."; return; }
+    render(); openNoGenre(`«${d.album}»: ${sel.join(", ")}.`);
+  };
+}
 $("gDone").onclick = closeGenreMgr;
 $("genOv").onclick = e => { if (e.target === $("genOv")) closeGenreMgr(); };
 async function addGenre(){
   const g = cleanGenre($("gNew").value); $("gErr").textContent = ""; if (!g) return;
   const ex = allGenres().find(x => x.toLowerCase() === g.toLowerCase());
   if (ex){ $("gErr").textContent = `«${ex}» c'è già.`; return; }
-  if (!(await askConfirm("Aggiungere il genere?", `«${g}» comparirà nel menu dei generi e lo assegno a questo disco.`, "Aggiungi"))) return;
+  if (!(await askConfirm("Aggiungere il genere?", genFromSettings ? `«${g}» comparirà nell'elenco dei generi, pronto da assegnare ai dischi.` : `«${g}» comparirà nel menu dei generi e lo assegno a questo disco.`, "Aggiungi"))) return;
   setExtra([...extraGenres(), g]);
-  if (!state.fgenres.includes(g)) state.fgenres.push(g);
-  $("gNew").value = ""; drawGenreMgr(); drawGenres();
+  if (!genFromSettings && !state.fgenres.includes(g)) state.fgenres.push(g);
+  $("gNew").value = ""; drawGenreMgr(); if (!genFromSettings) drawGenres(); else drawNoGenreBtn();
 }
 $("gAdd").onclick = addGenre;
 $("gNew").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); addGenre(); } });
@@ -1857,7 +1920,7 @@ $("gList").addEventListener("click", async e => {
     const n = genreCount(g);
     if (!(await askConfirm(`Eliminare «${g}»?`, n ? `Il genere verrà tolto da ${n === 1 ? "1 disco" : n + " dischi"}. I dischi restano in collezione.` : "Non è usato da nessun disco.", "Elimina", true))) return;
     try { replaceGenre(g, null); } catch(err){ $("gErr").textContent = "Non riesco a salvare: memoria piena."; return; }
-    drawGenreMgr(); drawGenres(); render();
+    drawGenreMgr(); drawGenres(); drawNoGenreBtn(); render();
   }
 });
 function drawSwatches(){ $("fSw").innerHTML = `<button type="button" class="auto ${!state.color ? "on" : ""}" data-c="">Auto</button>` + PALETTE.map(c => `<button type="button" data-c="${c}" class="${state.color === c ? "on" : ""}" style="background:${c}"></button>`).join(""); }
@@ -2771,6 +2834,7 @@ function openMenu(msg, folder){
     <p>I dischi sono salvati su questo dispositivo e funzionano anche offline.</p>
     <button class="item folder" id="mFBackup">📁 Backup<small>Esporta backup · Esporta in Excel · Importa backup · Ripristina una copia automatica</small></button>
     <button class="item folder" id="mFDiscogs">📁 Discogs<small>Codice personale · Dischi da collegare a Discogs</small></button>
+    <button class="item" id="mGenres">Gestione generi<small>${(n => `${allGenres().length === 1 ? "1 genere" : allGenres().length + " generi"} · ${n ? (n === 1 ? "1 album" : n + " album") + " senza genere" : "tutti gli album hanno un genere"}`)(noGenreDiscs().length)}</small></button>
     <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>`;
   $("menu").innerHTML = body + `
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
@@ -2782,6 +2846,7 @@ function openMenu(msg, folder){
   if ($("mFBackup")) $("mFBackup").onclick = () => openMenu("", "backup");
   if ($("mFDiscogs")) $("mFDiscogs").onclick = () => openMenu("", "discogs");
   if ($("mText")) $("mText").onclick = openTextSize;
+  if ($("mGenres")) $("mGenres").onclick = () => { $("menuOv").hidden = true; menuFolder = null; openGenreMgr(true); };
   if ($("mExport")) $("mExport").onclick = () => exportBackup();
   if ($("mImport")) $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
   if ($("mCsv")) $("mCsv").onclick = async () => { $("mOk").textContent = await exportCSV(); };
