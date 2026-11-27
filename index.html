@@ -437,8 +437,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <datalist id="artistList"></datalist>
     <label for="fAlbum">Titolo dell'album</label>
     <input class="field" id="fAlbum" autocomplete="off">
-    <button type="button" class="btn ghost small" id="fWiki" style="margin-top:12px">Completa da Wikipedia</button>
-    <div class="hint" id="fWikiMsg">Aggiunge data, durata, produttore e line up solo dove mancano.</div>
+    <button type="button" class="btn ghost small" id="fWiki" style="margin-top:12px">Completa i dati online</button>
+    <div class="hint" id="fWikiMsg">Data, tracklist, durata, produttore e line up, solo dove mancano.</div>
     <label for="fYear">Data di pubblicazione</label>
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label for="fDuration">Durata</label>
@@ -527,7 +527,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.84";
+const APP_VERSION = "1.85";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1887,7 +1887,7 @@ function openForm(d, list){
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtistAc").hidden = true;
-  if ($("fWikiMsg")) $("fWikiMsg").textContent = "Aggiunge data, durata, produttore e line up solo dove mancano.";
+  if ($("fWikiMsg")) $("fWikiMsg").textContent = "Data, tracklist, durata, produttore e line up, solo dove mancano.";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || ""); $("fDuration").value = d?.duration || "";
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
@@ -2310,22 +2310,109 @@ function openWikiFill(){
   };
 }
 // Nel modulo: completa solo le caselle vuote (salvi tu con «Salva»)
+/* ---------- Completa i dati online: Wikipedia, Discogs, MusicBrainz, Deezer ---------- */
+const ROLE_IT = [[/backing vocals?|background vocals?|harmony vocals?|chorus/i, "cori"], [/lead vocals?|vocals?|voice|singer/i, "voce"], [/bass guitar|double bass|electric bass|\bbass\b/i, "basso"],
+  [/lead guitar/i, "chitarra solista"], [/rhythm guitar/i, "chitarra ritmica"], [/acoustic guitar/i, "chitarra acustica"], [/electric guitar|guitars?/i, "chitarra"], [/drums?|drum kit/i, "batteria"],
+  [/percussion/i, "percussioni"], [/cymbals?/i, "piatti"], [/keyboards?|keys/i, "tastiere"], [/piano/i, "pianoforte"], [/organ|hammond/i, "organo"], [/synthesi[sz]er|synth/i, "sintetizzatore"],
+  [/saxophone|sax/i, "sassofono"], [/trumpet/i, "tromba"], [/trombone/i, "trombone"], [/violin|fiddle/i, "violino"], [/viola/i, "viola"], [/cello/i, "violoncello"], [/flute/i, "flauto"],
+  [/harmonica/i, "armonica"], [/mandolin/i, "mandolino"], [/banjo/i, "banjo"], [/turntables?|scratch/i, "giradischi"], [/programming/i, "programmazione"], [/samples?|sampler/i, "campionamenti"], [/strings/i, "archi"], [/horns?/i, "fiati"]];
+const MUSICIAN_ROLE = /vocal|voice|guitar|bass|drum|percussion|keyboard|piano|organ|synth|sax|trumpet|trombone|violin|viola|cello|flute|harmonica|mandolin|banjo|turntable|programming|strings|horn|instruments?|performer|music by|scratch|sampler/i;
+function roleIt(role){
+  const parts = String(role || "").replace(/\[.*?\]/g, "").split(/\s*(?:,|;|\/|&|\band\b)\s*/i).map(p => p.trim()).filter(Boolean);
+  const out = [];
+  for (const p of parts){ const hit = ROLE_IT.find(([re]) => re.test(p)); const v = hit ? hit[1] : p.charAt(0).toLowerCase() + p.slice(1); if (!out.includes(v)) out.push(v); }
+  return out.join(", ");
+}
+function lineupItalian(t){ // traduce i ruoli delle righe "Nome – ruoli"
+  return String(t || "").split("\n").map(l => { const m = l.match(/^(.+?)\s+–\s+(.+)$/); return m ? `${m[1]} – ${roleIt(m[2])}` : l; }).join("\n");
+}
+const peopleLines = map => [...map.entries()].map(([n, r]) => `${n} – ${roleIt([...r].join(", "))}`).slice(0, 25).join("\n") || null;
+const secDur = sec => sec ? normDuration(`${Math.floor(sec / 3600)}:${Math.floor(sec % 3600 / 60)}:${String(sec % 60).padStart(2, "0")}`) : null;
+async function gatherDiscogs(artist, album, linkedId){
+  const tok = dgToken(); if (!tok) return null;
+  const T = encodeURIComponent(tok);
+  let rel = null;
+  try {
+    if (linkedId){ const r = await fetch(`https://api.discogs.com/releases/${linkedId}?token=${T}`); if (r.ok) rel = await r.json(); }
+    if (!rel){
+      const q = new URLSearchParams({ token: tok, artist, release_title: album, type: "master", per_page: "5" });
+      const j = await (await fetch(`https://api.discogs.com/database/search?${q}`)).json();
+      const hit = (j.results || []).find(x => srKey(String(x.title || "").split(" - ").slice(1).join(" - ")) === srKey(album)) || (j.results || [])[0];
+      if (hit){ const m = await (await fetch(`https://api.discogs.com/masters/${hit.id}?token=${T}`)).json(); if (m.main_release){ const r = await fetch(`https://api.discogs.com/releases/${m.main_release}?token=${T}`); if (r.ok) rel = await r.json(); } }
+    }
+  } catch(e){}
+  if (!rel) return null;
+  const tl = (rel.tracklist || []).filter(t => !t.type_ || t.type_ === "track");
+  const credits = [...(rel.extraartists || []), ...tl.flatMap(t => t.extraartists || [])];
+  const prod = [...new Set(credits.filter(x => /^(co-)?producer\b|^produced by/i.test(x.role || "")).map(x => (x.anv || x.name).replace(/\s\(\d+\)$/, "")))];
+  const ppl = new Map();
+  for (const x of credits) if (MUSICIAN_ROLE.test(x.role || "") && !/producer|engineer|mix|master/i.test(x.role || "")){ const n = (x.anv || x.name).replace(/\s\(\d+\)$/, ""); if (!ppl.has(n)) ppl.set(n, new Set()); String(x.role).split(",").forEach(r => ppl.get(n).add(r.trim())); }
+  return { from: "Discogs", tracks: tl.map(t => t.title).join("\n") || null, duration: tracksDuration(tl), producer: prod.join(", ") || null, lineup: peopleLines(ppl) };
+}
+const mbWait = ms => new Promise(r => setTimeout(r, ms));
+async function gatherMusicBrainz(artist, album){
+  try {
+    const q = `releasegroup:"${album.replace(/"/g, "")}" AND artist:"${artist.replace(/"/g, "")}"`;
+    const s = await (await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=5`)).json();
+    const rg = (s["release-groups"] || []).find(g => srKey(g.title) === srKey(album)); if (!rg) return null;
+    await mbWait(1100);
+    const rl = await (await fetch(`https://musicbrainz.org/ws/2/release?release-group=${rg.id}&status=official&inc=media&fmt=json&limit=25`)).json();
+    const rels = (rl.releases || []).sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
+    const pick = rels.find(r => (r.media || []).some(m => /vinyl/i.test(m.format || ""))) || rels[0]; if (!pick) return null;
+    await mbWait(1100);
+    const rel = await (await fetch(`https://musicbrainz.org/ws/2/release/${pick.id}?inc=recordings+artist-rels+recording-level-rels+artist-credits&fmt=json`)).json();
+    const tracks = (rel.media || []).flatMap(m => m.tracks || []);
+    const ppl = new Map(), prod = new Set();
+    const take = rels2 => { for (const r of rels2 || []){ const n = r.artist?.name; if (!n) continue;
+      if (/^producer$/i.test(r.type)) prod.add(n);
+      else if (/^(instrument|vocal|performer|performing orchestra)$/i.test(r.type)){ if (!ppl.has(n)) ppl.set(n, new Set()); const at = r.attributes?.length ? r.attributes : [r.type === "vocal" ? "vocals" : r.type]; at.forEach(a => ppl.get(n).add(a)); } } };
+    take(rel.relations); tracks.forEach(t => take(t.recording?.relations));
+    const ms = tracks.reduce((t, x) => t + (x.length || 0), 0);
+    const fd = rg["first-release-date"] || "";
+    return { from: "MusicBrainz", date: /^\d{4}-\d{2}-\d{2}$/.test(fd) ? fd : null, tracks: tracks.map(t => t.title).join("\n") || null,
+      duration: ms && tracks.every(t => t.length) ? secDur(Math.round(ms / 1000)) : null, producer: [...prod].join(", ") || null, lineup: peopleLines(ppl) };
+  } catch(e){ return null; }
+}
+async function gatherDeezer(artist, album){
+  try {
+    const d = await jsonp("https://api.deezer.com/search/album?limit=10&q=" + encodeURIComponent(`artist:"${artist}" album:"${album}"`));
+    const hit = (d.data || []).find(x => srKey(x.artist?.name) === srKey(artist) && srKey(x.title) === srKey(album)); if (!hit) return null;
+    const a = await jsonp(`https://api.deezer.com/album/${hit.id}`); if (!a || a.error) return null;
+    return { from: "Deezer", tracks: (a.tracks?.data || []).map(t => t.title).join("\n") || null, duration: secDur(a.duration), releaseDate: a.release_date || null };
+  } catch(e){ return null; }
+}
+async function gatherDiscData(artist, album, year, linkedId){
+  const [wk, dg, mb, dz] = await Promise.all([
+    wikiAlbumInfo(artist, album, year).catch(() => null), gatherDiscogs(artist, album, linkedId), gatherMusicBrainz(artist, album), gatherDeezer(artist, album)]);
+  const first = (...xs) => { for (const [v, from] of xs) if (v) return { v, from }; return null; };
+  const okYear = dt => dt && (!year || Math.abs(+dt.slice(0, 4) - year) <= 1);
+  return {
+    date: first([wk?.date, "Wikipedia"], [okYear(mb?.date) ? mb.date : null, "MusicBrainz"]),
+    tracks: first([dg?.tracks, "Discogs"], [mb?.tracks, "MusicBrainz"], [dz?.tracks, "Deezer"]),
+    duration: first([wk?.duration, "Wikipedia"], [dg?.duration, "Discogs"], [mb?.duration, "MusicBrainz"], [dz?.duration, "Deezer"]),
+    producer: first([wk?.producer, "Wikipedia"], [dg?.producer, "Discogs"], [mb?.producer, "MusicBrainz"]),
+    lineup: first([wk?.lineup ? lineupItalian(wk.lineup) : null, "Wikipedia"], [mb?.lineup, "MusicBrainz"], [dg?.lineup, "Discogs"]),
+    any: !!(wk || dg || mb || dz),
+  };
+}
 async function wikiFillForm(){
   const artist = $("fArtist").value.trim(), album = $("fAlbum").value.trim(), say = t => { $("fWikiMsg").textContent = t; };
   if (!artist || !album){ say("Scrivi prima artista e titolo dell'album."); return; }
   if (!navigator.onLine){ say("Serve la connessione a internet."); return; }
-  $("fWiki").disabled = true; say("Cerco su Wikipedia…");
-  const yr = (parseRelease($("fYear").value) || {}).year;
-  let info = null, err = false; try { info = await wikiAlbumInfo(artist, album, yr); } catch(e){ err = true; }
-  $("fWiki").disabled = false;
-  if (!info){ say(err ? "Wikipedia non risponde in questo momento: riprova tra poco." : "Non ho trovato l'album su Wikipedia."); return; }
-  const got = [];
+  $("fWiki").disabled = true; say(`Cerco su Wikipedia, ${dgToken() ? "Discogs, " : ""}MusicBrainz e Deezer… (qualche secondo)`);
   const curRd = parseRelease($("fYear").value);
-  if (info.date && (!$("fYear").value.trim() || (curRd && !curRd.date && curRd.year === Number(info.date.slice(0, 4))))){ $("fYear").value = fmtDate(info.date); got.push("data"); }
-  if (!$("fDuration").value.trim() && info.duration){ $("fDuration").value = info.duration; got.push("durata"); }
-  if (!$("fProducer").value.trim() && info.producer){ $("fProducer").value = info.producer; got.push("produttore"); }
-  if (!$("fLineup").value.trim() && info.lineup){ $("fLineup").value = info.lineup; got.push("line up"); }
-  say(got.length ? `Aggiunti da ${info.from} («${info.page}»): ${got.join(", ")}. Controlla e salva.` : `Trovato «${info.page}», ma non c'era niente da aggiungere ai campi vuoti.`);
+  const linked = state.formDiscogs?.id || (state.editing && state.discs.find(d => d.id === state.editing)?.discogsId) || null;
+  let x = null; try { x = await gatherDiscData(artist, album, curRd?.year || null, linked); } catch(e){}
+  $("fWiki").disabled = false;
+  if (!x || !x.any){ say("Non ho trovato l'album online: controlla come hai scritto artista e titolo."); return; }
+  const got = [], src = new Set();
+  const put = (id, f, label, val) => { if (f && !$(id).value.trim()){ $(id).value = val ?? f.v; got.push(label); src.add(f.from); } };
+  if (x.date && (!$("fYear").value.trim() || (curRd && !curRd.date && curRd.year === +x.date.v.slice(0, 4)))){ $("fYear").value = fmtDate(x.date.v); got.push("data"); src.add(x.date.from); }
+  put("fTracks", x.tracks, "tracklist", x.tracks && cleanTracks(x.tracks.v));
+  put("fDuration", x.duration, "durata");
+  put("fProducer", x.producer, "produttore");
+  put("fLineup", x.lineup, "line up");
+  say(got.length ? `Aggiunti: ${got.join(", ")} (da ${[...src].join(", ")}). Controlla e salva.` : "Ho trovato l'album, ma i campi vuoti non avevano dati da aggiungere.");
 }
 function tracksDuration(list){
   let t = 0, n = 0;
