@@ -72,14 +72,12 @@ html.homeview .credits{padding-top:12px;line-height:1.45}
 /* Pagina iniziale "centrata": le voci restano compatte e stanno al centro, con lo stesso spazio sopra e sotto */
 html.homeview #sub{display:none}
 html.homeview #homeBanner:empty{display:none}
-html.homeview #homeBanner:empty + #goColl, html.homeview #homeBanner:not(:empty){margin-top:auto}
-html.homeview #goStats{margin-bottom:auto}
 html.homeview .credits{margin-top:0}
-/* iPhone: la pagina iniziale occupa tutto lo schermo (fino al bordo inferiore), crediti appena sopra la barra di Home */
-html.homeview body{top:0;bottom:auto;height:100vh;height:100lvh}
-html.homeview .home{padding-bottom:max(8px, calc(env(safe-area-inset-bottom) - 14px))!important}
-html.homeview .credits{padding-top:10px}
-@media (min-height:701px){ html.homeview .home{gap:clamp(14px, 2.4vh, 24px);padding-top:6px} html.homeview .card{padding:14px 18px} html.homeview .card-art{height:76px} }
+/* iPhone: crediti ancorati al fondo dello schermo, appena sopra la barra di Home; le voci stanno al centro dello spazio che resta */
+html.homeview .credits{position:fixed;left:0;right:0;bottom:max(10px, calc(env(safe-area-inset-bottom) - 12px));margin:0;padding:0 20px;pointer-events:none}
+html.homeview .home{padding-bottom:calc(max(10px, calc(env(safe-area-inset-bottom) - 12px)) + 58px)!important}
+html.homeview #homeBanner:not(:empty) ~ .credits{display:none}
+@media (min-height:701px){ html.homeview .home{gap:14px;padding-top:6px} html.homeview .card{padding:13px 18px} html.homeview .card-art{height:72px} }
 @media (max-height:700px){ html.homeview .home{gap:8px;padding-top:6px} html.homeview .card{padding:9px 12px} html.homeview .card-art{height:58px;width:84px} html.homeview .card-title{font-size:24px} html.homeview .credits{padding-top:6px;line-height:1.4} }
 .credits b{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;font-weight:600;color:var(--muted)}
 .banner{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;background:#3a2a17;border:1px solid #8a6a3a;border-radius:16px;padding:14px 16px}
@@ -566,7 +564,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.92";
+const APP_VERSION = "1.93";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -753,8 +751,19 @@ function showView(v, push = true){
   $("addBtn").textContent = v === "uscite" ? "+ Aggiungi uscita" : "+ Aggiungi disco";
   $("menuBtn").hidden = false; // ingranaggio sempre visibile, in alto a destra
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
-  window.scrollTo(0, 0); render();
+  window.scrollTo(0, 0); render(); centerHome();
 }
+// Pagina iniziale: la terza voce (Wishlist) esattamente a metà schermo, le altre simmetriche sopra e sotto
+function centerHome(){
+  const c = $("goColl"), w = $("goWish"); if (!c || !w) return;
+  if (!document.documentElement.classList.contains("homeview") || $("homeBanner").innerHTML.trim()){ c.style.marginTop = ""; return; }
+  c.style.marginTop = "0px";
+  const r = w.getBoundingClientRect(), vh = window.innerHeight;
+  c.style.marginTop = Math.max(0, Math.round(vh / 2 - (r.top + r.height / 2))) + "px";
+}
+window.addEventListener("resize", () => centerHome());
+window.addEventListener("orientationchange", () => setTimeout(centerHome, 300));
+try { document.fonts && document.fonts.ready.then(() => centerHome()); } catch(e){}
 window.addEventListener("popstate", () => showView((location.hash || "").slice(1), false));
 $("goColl").onclick = () => showView("collezione");
 $("goWish").onclick = () => showView("wishlist");
@@ -786,6 +795,7 @@ function renderHome(){
   $("homeInc").innerHTML = [...inc, ...deco.slice(3)].slice(0, 7).map(d => `<div style="--row:78px;--s:.32">${spineSpan(d)}</div>`).join("") + BOX_SVG;
   $("homeIncSub").textContent = inc.length ? `${inc.length} ${inc.length === 1 ? "disco ordinato" : "dischi ordinati"}` : "Ordinati, non ancora arrivati";
   $("homeBanner").innerHTML = bannerHTML();
+  requestAnimationFrame(centerHome);
   const dec = decadeCounts().slice(-6);
   const mx = Math.max(1, ...dec.map(x => x[1]));
   const nA = new Set(coll.map(d => norm(d.artist))).size;
@@ -3046,7 +3056,7 @@ applyTextScale();
 try { seedCharts(); } catch(e){}
 showView((location.hash || "").slice(1), false);
 snapDaily();
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible"){ snapDaily(); try { $("homeBanner").innerHTML = bannerHTML(); } catch(e){} } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible"){ snapDaily(); try { $("homeBanner").innerHTML = bannerHTML(); centerHome(); } catch(e){} } });
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
 if ("serviceWorker" in navigator && location.protocol !== "file:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 })();
