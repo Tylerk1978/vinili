@@ -565,7 +565,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "2.01";
+const APP_VERSION = "2.02";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -862,7 +862,7 @@ function renderColl(){
       const img = d.coverUrl && !d.coverLocal ? `<img src="${esc(d.coverUrl)}" alt="" loading="lazy" onerror="this.remove()">` : "";
       g += `<button class="citem" data-id="${esc(d.id)}"><div class="cimg" data-local="${d.coverLocal ? 1 : ""}" style="--c:${col};--t:${lum(col) > .6 ? "#2a2018" : "#f4ead6"}"><div class="ph">${esc(d.album)}</div>${img}</div><b>${esc(d.album)}</b><span>${esc(d.artist)}</span></button>`;
     }
-    $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${countTxt}</span></div><div class="cgrid">${g}</div>`;
+    $("collMain").innerHTML = `<div class="cgrid">${g}</div>`;
     $("collMain").querySelectorAll('.cimg[data-local="1"]').forEach(async el => {
       const d = state.discs.find(x => x.id === el.parentNode.dataset.id); const src = d && await coverSrc(d);
       if (src) el.insertAdjacentHTML("beforeend", `<img src="${esc(src)}" alt="">`);
@@ -879,7 +879,7 @@ function renderColl(){
   }
   html += "</div>";
   requestAnimationFrame(() => fitSpines($("collMain")));
-  $("collMain").innerHTML = `<div class="sechead"><h2>Collezione</h2><span>${state.q || state.fartist || state.genre || state.year ? `${list.length} di ${all.length}` : `${all.length} ${all.length === 1 ? "disco" : "dischi"}`}</span></div><div class="case">${html}</div>`;
+  $("collMain").innerHTML = `<div class="case">${html}</div>`;
   state.newId = null;
 }
 function coverItemHTML(d){
