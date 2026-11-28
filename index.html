@@ -486,7 +486,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div class="stars" id="fStars"></div>
     <label>Genere</label>
     <div class="gsel" id="fGenres"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
+    <div hidden>
       <select class="field" id="fGenreSel" style="flex:1"></select>
       <button type="button" class="btn ghost small" id="fGenreMgr">Modifica</button>
     </div>
@@ -565,7 +565,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "2.02";
+const APP_VERSION = "2.04";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -967,7 +967,6 @@ function renderArtist(){
     <h2>Dischi in collezione</h2>
     ${coll.map(discRow).join("") || `<p class="note">Nessun disco in collezione.</p>`}
     ${other.length ? `<h2>In wishlist o in arrivo</h2>${other.map(discRow).join("")}` : ""}
-    <div class="actions" style="margin-top:22px"><button type="button" class="btn ghost" id="aEdit">Modifica</button></div>
   </div>`;
   $("viewArtist").querySelectorAll(".th[data-cid]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cid); const src = d && await coverSrc(d); if (src) el.innerHTML = `<img src="${esc(src)}" alt="" onerror="this.remove()">`; });
   drawArtistPhoto(name);
@@ -1013,7 +1012,7 @@ async function loadBioFor(name, auto){
   const typing = state.artist === name && $("aInfo") && $("aInfo").value.trim();
   if (auto && (cur || typing)){ say(""); return; } // nel frattempo hai scritto tu: non tocco niente
   if (!auto && cur && !(await askConfirm("Sostituire il testo?", "In Info c'è già del testo: la biografia trovata lo sostituirà.", "Sostituisci"))){ say(""); return; }
-  setMeta("artistInfo", { ...(getMeta().artistInfo || {}), [k]: `${trimBio(bio.text)}\n\n(Fonte: ${bio.from})` }); setMeta("lastChangeAt", new Date().toISOString());
+  setMeta("artistInfo", { ...(getMeta().artistInfo || {}), [k]: trimBio(bio.text) }); setMeta("lastChangeAt", new Date().toISOString());
   if (state.view === "artista" && state.artist === name){ const y = window.scrollY; renderArtist(); window.scrollTo(0, y); }
 }
 async function drawArtistPhoto(name){
@@ -1183,22 +1182,43 @@ function openArtistPhotosMenu(){
   };
 }
 
-function openArtistEdit(){
-  const has = $("aPhoto") && $("aPhoto").classList.contains("has");
+// Impostazioni → Info artisti: scegli un artista, poi foto o biografia
+function artistNamesAll(){
+  const m = new Map(); for (const d of state.discs) if (d.artist && !m.has(akey(d.artist))) m.set(akey(d.artist), d.artist);
+  return [...m.values()].sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+}
+function openArtistsInfo(q){
+  q = q || "";
+  const all = artistNamesAll(), qq = q.trim().toLowerCase();
+  const list = qq ? all.filter(n => n.toLowerCase().includes(qq)) : all;
   $("menu").innerHTML = `
-    <h3>Modifica</h3>
-    <p>Foto di ${esc(state.artist)}</p>
+    <button class="backlink" id="aiUp" style="font-size:15px">‹ Impostazioni</button>
+    <h3 style="margin-top:6px">Info artisti</h3>
+    <p>Scegli un artista per caricare una foto, sceglierne una online o caricare la biografia.</p>
+    <input class="field" id="aiQ" placeholder="Cerca artista" value="${esc(q)}" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="aiList">${list.map(n => `<button class="item" data-a="${esc(n)}">${esc(n)}</button>`).join("") || `<p class="note">Nessun artista trovato.</p>`}</div>
+    <div class="actions"><button class="btn ghost" id="aiClose">Chiudi</button></div>`;
+  $("menuOv").hidden = false;
+  $("aiUp").onclick = () => openMenu("", null);
+  $("aiClose").onclick = () => { $("menuOv").hidden = true; menuFolder = null; };
+  $("aiQ").oninput = () => { const v = $("aiQ").value, pos = $("aiQ").selectionStart; openArtistsInfo(v); $("aiQ").focus(); try { $("aiQ").setSelectionRange(pos, pos); } catch(e){} };
+  $("aiList").onclick = e => { const b = e.target.closest("button[data-a]"); if (b) openArtistActions(b.dataset.a, q); };
+}
+function openArtistActions(name, q){
+  $("menu").innerHTML = `
+    <button class="backlink" id="aaUp" style="font-size:15px">‹ Info artisti</button>
+    <h3 style="margin-top:6px">${esc(name)}</h3>
     <button class="item" id="aeUpload">Carica una foto<small>Dalla libreria foto del telefono</small></button>
     <button class="item" id="aeOnline">Scegli una foto online<small>Da Deezer, TheAudioDB, Discogs e Wikipedia · serve internet</small></button>
-    ${has ? `<button class="item" id="aeDel">Togli la foto<small>Ti chiedo conferma prima di eliminarla</small></button>` : ""}
     <button class="item" id="aeBio">Carica biografia<small>Da Wikipedia · sostituisce il testo di Info (ti chiedo conferma)</small></button>
-    <div class="actions"><button type="button" class="btn ghost" id="aeClose">Annulla</button></div>`;
+    <div class="actions"><button type="button" class="btn ghost" id="aeClose">Chiudi</button></div>`;
   $("menuOv").hidden = false; $("menu").scrollTop = 0;
-  $("aeClose").onclick = () => { $("menuOv").hidden = true; };
-  $("aeUpload").onclick = () => { $("menuOv").hidden = true; $("artistPhotoFile").value = ""; $("artistPhotoFile").click(); };
-  $("aeOnline").onclick = () => { $("menuOv").hidden = true; openPhotoPicker(state.artist); };
-  if (has) $("aeDel").onclick = async () => { $("menuOv").hidden = true; await deleteArtistPhoto(); };
-  $("aeBio").onclick = () => { $("menuOv").hidden = true; window.scrollTo(0, 0); loadBioFor(state.artist, false); };
+  const go = () => { $("menuOv").hidden = true; menuFolder = null; openArtist(name); window.scrollTo(0, 0); };
+  $("aaUp").onclick = () => openArtistsInfo(q);
+  $("aeClose").onclick = () => { $("menuOv").hidden = true; menuFolder = null; };
+  $("aeUpload").onclick = () => { go(); $("artistPhotoFile").value = ""; $("artistPhotoFile").click(); };
+  $("aeOnline").onclick = () => { go(); openPhotoPicker(name); };
+  $("aeBio").onclick = () => { go(); loadBioFor(name, false); };
 }
 async function deleteArtistPhoto(){
     if (!(await askConfirm("Togliere la foto?", "La foto dell'artista verrà eliminata.", "Togli", true))) return;
@@ -1212,7 +1232,6 @@ async function deleteArtistPhoto(){
 $("viewArtist").addEventListener("click", async e => {
   if (e.target.closest("#aBack")){ if (state.artistReturn) return goBackFromArtist(); return showView("collezione"); }
   const row = e.target.closest(".drow"); if (row) return openDetail(row.dataset.id);
-  if (e.target.closest("#aEdit")) return openArtistEdit();
 
 });
 $("artistPhotoFile").addEventListener("change", async e => {
@@ -2011,7 +2030,7 @@ async function moveTo(id, to){
 
 /* ---------- Modulo ---------- */
 function drawGenres(){
-  $("fGenres").innerHTML = state.fgenres.map(g => `<span>${esc(g)}<button type="button" data-g="${esc(g)}" aria-label="Togli ${esc(g)}">×</button></span>`).join("");
+  $("fGenres").innerHTML = state.fgenres.length ? state.fgenres.map(g => `<span>${esc(g)}<button type="button" data-g="${esc(g)}" aria-label="Togli ${esc(g)}">×</button></span>`).join("") : `<small style="color:var(--muted)">Nessun genere · si assegnano da Impostazioni → Generi</small>`;
   const rest = allGenres().filter(g => !state.fgenres.includes(g));
   $("fGenreSel").innerHTML = `<option value="">${allGenres().length ? (rest.length ? "Scegli un genere…" : "Hai già scelto tutti i generi") : "Nessun genere: tocca Modifica"}</option>` + rest.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join("");
 }
@@ -3049,11 +3068,11 @@ function openMenu(msg, folder){
     <button class="item" id="mUnlinked">Dischi da collegare a Discogs<small>${nUnl ? `${nUnl === 1 ? "1 disco" : nUnl + " dischi"} in collezione senza stampa Discogs` : "Tutti i dischi in collezione sono collegati"}</small></button>`;
   else body = `
     <h3>Impostazioni</h3>
-    <p>I dischi sono salvati su questo dispositivo e funzionano anche offline.</p>
     <button class="item folder" id="mFBackup">📁 Backup<small>Esporta backup · Esporta in Excel · Importa backup · Ripristina una copia automatica</small></button>
     <button class="item folder" id="mFDiscogs">📁 Discogs<small>Codice personale · Dischi da collegare a Discogs</small></button>
-    <button class="item" id="mGenres">Gestione generi<small>${(n => `${allGenres().length === 1 ? "1 genere" : allGenres().length + " generi"} · ${n ? (n === 1 ? "1 album" : n + " album") + " senza genere" : "tutti gli album hanno un genere"}`)(noGenreDiscs().length)}</small></button>
-    <button class="item" id="mText">Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>`;
+    <button class="item folder" id="mArtists">🎤 Info artisti<small>Carica una foto · Scegli una foto online · Carica biografia</small></button>
+    <button class="item folder" id="mGenres">🏷️ Generi<small>${(n => `${allGenres().length === 1 ? "1 genere" : allGenres().length + " generi"} · ${n ? (n === 1 ? "1 album" : n + " album") + " senza genere" : "tutti gli album hanno un genere"}`)(noGenreDiscs().length)}</small></button>
+    <button class="item folder" id="mText">🔠 Dimensione testo<small>Ingrandisci o rimpicciolisci il testo nelle schede dei dischi</small></button>`;
   $("menu").innerHTML = body + `
     <div class="ok" id="mOk">${esc(msg || "")}</div><div class="err" id="mErr"></div>
     <div class="actions"><button class="btn ghost" id="mClose">Chiudi</button></div>
@@ -3064,6 +3083,7 @@ function openMenu(msg, folder){
   if ($("mFBackup")) $("mFBackup").onclick = () => openMenu("", "backup");
   if ($("mFDiscogs")) $("mFDiscogs").onclick = () => openMenu("", "discogs");
   if ($("mText")) $("mText").onclick = openTextSize;
+  if ($("mArtists")) $("mArtists").onclick = () => openArtistsInfo("");
   if ($("mGenres")) $("mGenres").onclick = () => { $("menuOv").hidden = true; menuFolder = null; openGenreMgr(true); };
   if ($("mExport")) $("mExport").onclick = () => exportBackup();
   if ($("mImport")) $("mImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
@@ -3104,6 +3124,10 @@ state.mode = "cover"; // solo vista a copertine
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
 applyTextScale();
 try { seedCharts(); } catch(e){}
+// 2.03: toglie "(Fonte: …)" dalle biografie già salvate
+try { const ai = getMeta().artistInfo || {}; let ch = false; const out = {};
+  for (const [k, v] of Object.entries(ai)){ const nv = typeof v === "string" ? v.replace(/\s*\((?:fonte|source)\s*:[^)]*(?:\([^)]*\)[^)]*)?\)\s*$/i, "").trim() : v; if (nv !== v) ch = true; out[k] = nv; }
+  if (ch) setMeta("artistInfo", out); } catch(e){}
 showView((location.hash || "").slice(1), false);
 snapDaily();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible"){ snapDaily(); try { $("homeBanner").innerHTML = bannerHTML(); centerHome(); } catch(e){} } });
