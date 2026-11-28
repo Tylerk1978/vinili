@@ -75,7 +75,11 @@ html.homeview #homeBanner:empty{display:none}
 html.homeview #homeBanner:empty + #goColl, html.homeview #homeBanner:not(:empty){margin-top:auto}
 html.homeview #goStats{margin-bottom:auto}
 html.homeview .credits{margin-top:0}
-@media (min-height:701px){ html.homeview .home{gap:14px;padding-top:6px} html.homeview .card{padding:14px 18px} html.homeview .card-art{height:76px} }
+/* iPhone: la pagina iniziale occupa tutto lo schermo (fino al bordo inferiore), crediti appena sopra la barra di Home */
+html.homeview body{top:0;bottom:auto;height:100vh;height:100lvh}
+html.homeview .home{padding-bottom:max(8px, calc(env(safe-area-inset-bottom) - 14px))!important}
+html.homeview .credits{padding-top:10px}
+@media (min-height:701px){ html.homeview .home{gap:clamp(14px, 2.4vh, 24px);padding-top:6px} html.homeview .card{padding:14px 18px} html.homeview .card-art{height:76px} }
 @media (max-height:700px){ html.homeview .home{gap:8px;padding-top:6px} html.homeview .card{padding:9px 12px} html.homeview .card-art{height:58px;width:84px} html.homeview .card-title{font-size:24px} html.homeview .credits{padding-top:6px;line-height:1.4} }
 .credits b{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;font-weight:600;color:var(--muted)}
 .banner{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;background:#3a2a17;border:1px solid #8a6a3a;border-radius:16px;padding:14px 16px}
@@ -562,7 +566,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.91";
+const APP_VERSION = "1.92";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -745,7 +749,7 @@ function showView(v, push = true){
   document.documentElement.classList.toggle("homeview", v === "home");
   $("viewHome").hidden = v !== "home"; $("viewColl").hidden = v !== "collezione"; $("viewLists").hidden = !(v === "wishlist" || v === "inarrivo");
   $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche"; $("viewRel").hidden = v !== "uscite";
-  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden || v === "uscite";
+  $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = true; // la scansione resta dentro "Aggiungi disco"
   $("addBtn").textContent = v === "uscite" ? "+ Aggiungi uscita" : "+ Aggiungi disco";
   $("menuBtn").hidden = false; // ingranaggio sempre visibile, in alto a destra
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
