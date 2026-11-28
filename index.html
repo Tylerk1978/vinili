@@ -150,6 +150,7 @@ html.homeview #homeBanner:not(:empty) ~ .credits{display:none}
 .hint:empty{display:none}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatches[hidden]{display:none}
 .swatches button{width:30px;height:30px;border-radius:8px;border:2px solid transparent;cursor:pointer}
 .swatches button.on{border-color:var(--ink)}
 .swatches .auto{width:auto;padding:0 10px;background:var(--field);color:var(--muted);font-size:12px;border:1px solid var(--line)}
@@ -197,6 +198,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .fcover-prev{flex:0 0 auto;width:110px;height:110px;border-radius:4px;background:#100c09;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 6px 14px rgba(0,0,0,.5)}
 .fcover-prev img{width:100%;height:100%;object-fit:cover}
 .fcover-acts{flex:1;display:flex;flex-direction:column;gap:8px}
+.fcover-h{font-size:13px;color:var(--muted);margin-bottom:-2px}
 .fcover-acts .btn{width:100%}
 .picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:10px}
 .picks button{padding:0;border:2px solid transparent;border-radius:6px;background:#2a221a;cursor:pointer;overflow:hidden;text-align:left;color:var(--ink)}
@@ -421,7 +423,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
       <button type="button" class="clearf" id="clearFilters">Cancella filtri</button>
     </div>
   </div>
-  <div class="viewtoggle" id="viewToggle"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
+  <div class="viewtoggle" id="viewToggle" hidden style="display:none"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
   <div class="letters" id="letters"></div>
   <div id="collMain"></div>
 </section>
@@ -445,7 +447,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
       <input class="field" id="lq" type="search" placeholder="Cerca artista o album" autocomplete="off">
     </div>
   </div>
-  <div class="viewtoggle" id="listToggle"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
+  <div class="viewtoggle" id="listToggle" hidden style="display:none"><button data-m="spine">Costine</button><button data-m="cover">Copertine</button></div>
   <div id="listsMain"></div>
 </section>
 
@@ -455,17 +457,20 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <h3 id="formTitle">Nuovo disco</h3>
     <button type="button" class="btn ghost" id="fScan" style="width:100%">📷 Scansiona il codice a barre</button>
     <div class="hint" id="fScanHint"></div>
-    <label>Copertina</label>
-    <div class="fcover">
+    <div class="fcover" style="margin-top:14px">
       <div class="fcover-prev" id="fCoverPrev"></div>
       <div class="fcover-acts">
+        <div class="fcover-h">Copertina</div>
         <button type="button" class="btn ghost small" id="fSearch">Cerca online</button>
         <button type="button" class="btn ghost small" id="fPhoto">Carica foto</button>
-        <button type="button" class="btn ghost small" id="fCoverDel">Togli copertina</button>
+        <button type="button" class="btn ghost small" id="fCoverDel">Togli</button>
       </div>
     </div>
     <div class="hint" id="fHint"></div>
     <div class="picks" id="fPicks"></div>
+    <button type="button" class="btn ghost" id="fWiki" style="width:100%;margin-top:14px">Completa i dati online</button>
+    <div class="hint" id="fWikiMsg">Data, tracklist, durata, produttore e line up, solo dove mancano.</div>
+    <button type="button" class="btn ghost" id="fDg" style="width:100%;margin-top:10px" hidden>Collegamento a Discogs</button>
     <label for="fArtist">Artista</label>
     <div class="acwrap">
       <input class="field" id="fArtist" autocomplete="off" autocapitalize="words" style="padding-right:44px">
@@ -475,8 +480,6 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <datalist id="artistList"></datalist>
     <label for="fAlbum">Titolo dell'album</label>
     <input class="field" id="fAlbum" autocomplete="off">
-    <button type="button" class="btn ghost small" id="fWiki" style="margin-top:12px">Completa i dati online</button>
-    <div class="hint" id="fWikiMsg">Data, tracklist, durata, produttore e line up, solo dove mancano.</div>
     <label for="fYear">Data di pubblicazione</label>
     <input class="field" id="fYear" type="text" autocomplete="off" placeholder="Es. 30-10-1978, oppure solo 1978">
     <label for="fDuration">Durata</label>
@@ -500,9 +503,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div hidden><input id="fVinyl"><input id="fDiscs"><input id="fLimited"><input id="fValue"></div>
     <label for="fNotes">Note</label>
     <textarea class="field" id="fNotes" rows="3" placeholder="Note"></textarea>
-    <label>Colore della costina</label>
-    <div class="swatches" id="fSw"></div>
-    <button type="button" class="btn ghost" id="fDg" style="width:100%;margin-top:18px" hidden>Collegamento a Discogs</button>
+    <div class="swatches" id="fSw" hidden></div>
     <div class="err" id="fErr"></div>
     <div class="actions">
       <button type="button" class="btn ghost" id="fCancel">Annulla</button>
@@ -566,7 +567,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.98";
+const APP_VERSION = "1.99";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -2123,7 +2124,7 @@ async function drawFormCover(){
   const prev = state.editing ? state.discs.find(d => d.id === state.editing) : null;
   const p = state.pending;
   let src = p ? (p.type === "remove" ? null : p.url) : (prev ? await coverSrc(prev) : null);
-  $("fCoverPrev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : `<div style="--row:110px;--s:1">${spineSpan({ id: "x", artist: $("fArtist").value || "Artista", album: $("fAlbum").value || "Album", color: state.color || null })}</div>`;
+  $("fCoverPrev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : `<span style="color:var(--muted);font-size:12px;text-align:center;padding:8px">Nessuna copertina</span>`;
   $("fCoverDel").hidden = !src;
 }
 function focusDisc(id, fallbackY){
@@ -3084,7 +3085,7 @@ state.discs = load();
 // Disattivato in 1.36 (non si cancellano più i collegamenti Discogs in automatico): if (!getMeta().dgWipe131){ state.discs = state.discs.map(d => { const { discogsId, discogsInfo, market, condition, ...rest } = d; return rest; }); try { localStorage.setItem(KEY, JSON.stringify(state.discs)); setMeta("dgWipe131", new Date().toISOString()); } catch(e){} }
 // Disattivato in 1.36 (non si cancellano più i collegamenti Discogs in automatico): { let ch = false; state.discs = state.discs.map(d => { if (!d.discogsId || d.discogsInfo) return d; ch = true; const { discogsId, market, condition, ...rest } = d; return rest; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
 { let ch = false; state.discs = state.discs.map(d => { if (!d.tracks) return d; const c = cleanTracks(d.tracks) || null; if (c !== d.tracks){ ch = true; return { ...d, tracks: c }; } return d; }); if (ch) try { localStorage.setItem(KEY, JSON.stringify(state.discs)); } catch(e){} }
-state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
+state.mode = "cover"; // solo vista a copertine
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
 applyTextScale();
 try { seedCharts(); } catch(e){}
