@@ -551,7 +551,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.89";
+const APP_VERSION = "1.90";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1505,7 +1505,7 @@ function renderChartsHome(){
   const c = getCharts(), years = Object.keys(c).sort((a, b) => b - a);
   $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">Le mie classifiche</h2>
     <p class="note">${years.length ? "Tocca un anno per vedere la classifica." : "Non hai ancora classifiche."}</p>
-    ${years.map(y => { const n = c[y].length, ds = c[y].map(chartDisc), own = ds.filter(d => d && !d.list).length, oth = ds.filter(d => d && d.list).length; return `<button class="subcard" data-chart="${esc(y)}"><span class="t">${esc(y)}</span><span class="s">${n} ${n === 1 ? "disco" : "dischi"} · ${own} in collezione${oth ? ` · ${oth} in arrivo o wishlist` : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; }).join("")}
+    ${years.map(y => { const n = c[y].length, ds = c[y].map(chartDisc), own = ds.filter(d => d && !d.list).length, oth = ds.filter(d => d && d.list).length; return `<button class="subcard" data-chart="${esc(y)}"><span class="t">${esc(y)}</span><span class="s"></span><span class="chev" style="font-size:22px">›</span></button>`; }).join("")}
     <div class="actions" style="justify-content:flex-start"><button class="btn ghost small" id="chNewYear">+ Nuova classifica</button></div></div>`;
 }
 function renderChart(){
