@@ -74,7 +74,8 @@ html.homeview #sub{display:none}
 html.homeview #homeBanner:empty{display:none}
 html.homeview .credits{margin-top:0}
 /* iPhone: crediti ancorati al fondo dello schermo, appena sopra la barra di Home; le voci stanno al centro dello spazio che resta */
-html.homeview .credits{position:fixed;left:0;right:0;bottom:max(10px, calc(env(safe-area-inset-bottom) - 12px));margin:0;padding:0 20px;pointer-events:none}
+html.homeview body{bottom:auto;height:var(--appH, 100%)}
+html.homeview .credits{position:absolute;left:0;right:0;bottom:max(10px, calc(env(safe-area-inset-bottom) - 12px));margin:0;padding:0 20px;pointer-events:none}
 html.homeview .home{padding-bottom:calc(max(10px, calc(env(safe-area-inset-bottom) - 12px)) + 58px)!important}
 html.homeview #homeBanner:not(:empty) ~ .credits{display:none}
 @media (min-height:701px){ html.homeview .home{gap:14px;padding-top:6px} html.homeview .card{padding:13px 18px} html.homeview .card-art{height:72px} }
@@ -564,7 +565,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.93";
+const APP_VERSION = "1.94";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -754,12 +755,20 @@ function showView(v, push = true){
   window.scrollTo(0, 0); render(); centerHome();
 }
 // Pagina iniziale: la terza voce (Wishlist) esattamente a metà schermo, le altre simmetriche sopra e sotto
+// Sull'iPhone, come app sulla schermata Home, innerHeight a volte è più corto dello schermo: uso l'altezza vera dello schermo
+function appHeight(){
+  const sa = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  return sa && screen.height > window.innerHeight && Math.abs(screen.width - window.innerWidth) < 2 ? screen.height : window.innerHeight;
+}
 function centerHome(){
+  const H = appHeight(); document.documentElement.style.setProperty("--appH", H + "px");
   const c = $("goColl"), w = $("goWish"); if (!c || !w) return;
   if (!document.documentElement.classList.contains("homeview") || $("homeBanner").innerHTML.trim()){ c.style.marginTop = ""; return; }
   c.style.marginTop = "0px";
-  const r = w.getBoundingClientRect(), vh = window.innerHeight;
-  c.style.marginTop = Math.max(0, Math.round(vh / 2 - (r.top + r.height / 2))) + "px";
+  const r = w.getBoundingClientRect(), r0 = c.getBoundingClientRect(), hb = document.querySelector("header").getBoundingClientRect().bottom;
+  let m = Math.round(H / 2 - (r.top + r.height / 2));          // Wishlist a metà schermo
+  m = Math.max(m, Math.round(hb + 22 - r0.top));               // ma sempre staccata dall'ingranaggio
+  c.style.marginTop = Math.max(0, m) + "px";
 }
 window.addEventListener("resize", () => centerHome());
 window.addEventListener("orientationchange", () => setTimeout(centerHome, 300));
