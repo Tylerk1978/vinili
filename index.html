@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Vinili">
+<meta name="apple-mobile-web-app-title" content="Vinileria">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>I miei vinili</title>
+<title>Vinileria</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -31,6 +31,10 @@ header{max-width:1100px;margin:0 auto;padding:calc(26px + env(safe-area-inset-to
 h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(30px,7vw,44px);margin:0;line-height:1;cursor:pointer}
 .sub{color:var(--muted);font-size:14px;margin-top:6px}
 .hbtns{display:flex;gap:8px;align-items:center}
+/* Ingranaggio sempre in alto a destra, allineato al titolo, in tutte le pagine */
+header{position:relative}
+.htitle{padding-right:54px}
+#menuBtn{position:absolute;right:calc(20px + env(safe-area-inset-right));top:calc(26px + env(safe-area-inset-top))}
 .menu .item.folder{font-weight:600}
 .iconbtn{width:42px;height:42px;border-radius:999px;border:1px solid #5d4c39;background:transparent;color:var(--ink);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn.back{font-size:28px;padding-bottom:3px}
@@ -65,6 +69,13 @@ html.homeview header{flex:0 0 auto;width:100%;box-sizing:border-box}
 html.homeview .home{flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding-bottom:max(4px, calc(env(safe-area-inset-bottom) - 18px))}
 html.homeview .credits{padding-top:12px;line-height:1.45}
 @media (max-height:900px){ html.homeview .home{gap:10px;padding-top:10px} html.homeview .card{padding:12px 14px} html.homeview .card-art{height:72px} html.homeview .card-art .disc{width:60px;height:60px} }
+/* Pagina iniziale "centrata": le voci restano compatte e stanno al centro, con lo stesso spazio sopra e sotto */
+html.homeview #sub{display:none}
+html.homeview #homeBanner:empty{display:none}
+html.homeview #homeBanner:empty + #goColl, html.homeview #homeBanner:not(:empty){margin-top:auto}
+html.homeview #goStats{margin-bottom:auto}
+html.homeview .credits{margin-top:0}
+@media (min-height:701px){ html.homeview .home{gap:14px;padding-top:6px} html.homeview .card{padding:14px 18px} html.homeview .card-art{height:76px} }
 @media (max-height:700px){ html.homeview .home{gap:8px;padding-top:6px} html.homeview .card{padding:9px 12px} html.homeview .card-art{height:58px;width:84px} html.homeview .card-title{font-size:24px} html.homeview .credits{padding-top:6px;line-height:1.4} }
 .credits b{font-family:"Cormorant Garamond",Georgia,serif;font-size:16px;font-weight:600;color:var(--muted)}
 .banner{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;background:#3a2a17;border:1px solid #8a6a3a;border-radius:16px;padding:14px 16px}
@@ -356,11 +367,11 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   <div class="htitle">
     <button class="iconbtn back" id="backBtn" aria-label="Indietro" hidden>‹</button>
     <div>
-      <h1 id="homeLink">I miei vinili</h1>
+      <h1 id="homeLink">Vinileria</h1>
       <div class="sub" id="sub">&nbsp;</div>
     </div>
   </div>
-  <div class="hbtns"><button class="iconbtn" id="menuBtn" aria-label="Impostazioni"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="iconbtn" id="scanBtn" aria-label="Scansiona codice a barre" hidden>📷</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button></div>
+  <div class="hbtns"><button class="iconbtn" id="scanBtn" aria-label="Scansiona codice a barre" hidden>📷</button><button class="btn" id="addBtn" hidden>+ Aggiungi disco</button><button class="iconbtn" id="menuBtn" aria-label="Impostazioni"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </header>
 
 <section id="viewHome" class="home">
@@ -551,7 +562,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.90";
+const APP_VERSION = "1.91";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -736,7 +747,7 @@ function showView(v, push = true){
   $("viewArtist").hidden = v !== "artista"; $("viewStats").hidden = v !== "statistiche"; $("viewRel").hidden = v !== "uscite";
   $("backBtn").hidden = v === "home"; $("addBtn").hidden = !["collezione","wishlist","inarrivo"].includes(v); $("scanBtn").hidden = $("addBtn").hidden || v === "uscite";
   $("addBtn").textContent = v === "uscite" ? "+ Aggiungi uscita" : "+ Aggiungi disco";
-  $("menuBtn").hidden = v === "uscite";
+  $("menuBtn").hidden = false; // ingranaggio sempre visibile, in alto a destra
   if (push){ const h = v === "home" ? "" : "#" + v; if (location.hash !== h) history.pushState(null, "", h || location.pathname); }
   window.scrollTo(0, 0); render();
 }
@@ -3018,7 +3029,7 @@ $("menuOv").addEventListener("click", e => { if (e.target.id === "menuOv") $("me
 document.addEventListener("keydown", e => { if (e.key === "Escape"){ if (!$("cfOv").hidden) return $("cfNo").click(); $("formOv").hidden = true; $("detOv").hidden = true; $("menuOv").hidden = true; } });
 
 /* ---------- Avvio ---------- */
-$("credits").innerHTML = `<b>I miei vinili</b><br>Versione ${APP_VERSION} · by Massimo Merigo`;
+$("credits").innerHTML = `<b>Vinileria</b><br>Versione ${APP_VERSION} · by Massimo Merigo`;
 state.discs = load();
 // Collegamenti Discogs arrivati dall'import (spesso puntavano a CD): si tolgono, restano solo quelli scelti nell'app.
 // Versione 1.31: azzeramento completo, una volta sola, di tutti i collegamenti Discogs (si ricreano a mano).
