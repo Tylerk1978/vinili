@@ -71,6 +71,7 @@ html.homeview .credits{padding-top:12px;line-height:1.45}
 @media (max-height:900px){ html.homeview .home{gap:10px;padding-top:10px} html.homeview .card{padding:12px 14px} html.homeview .card-art{height:72px} html.homeview .card-art .disc{width:60px;height:60px} }
 /* Pagina iniziale "centrata": le voci restano compatte e stanno al centro, con lo stesso spazio sopra e sotto */
 html.homeview #sub{display:none}
+html.homeview #homeLink{visibility:hidden} /* nella pagina iniziale niente titolo: resta solo l'ingranaggio */
 html.homeview #homeBanner:empty{display:none}
 html.homeview .credits{margin-top:0}
 /* iPhone: crediti ancorati al fondo dello schermo, appena sopra la barra di Home; le voci stanno al centro dello spazio che resta */
@@ -565,7 +566,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.96";
+const APP_VERSION = "1.98";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1364,9 +1365,11 @@ async function linkDisc(relId, info){
   if (prev && prev.discogsId !== String(relId)) patch.condition = prev.condition || null;
   patchDisc(id, patch);
   $("dgOv").hidden = true; dgFor = null;
-  if (unlinkedMode){ // arrivo dall'elenco "Da collegare": ci torno subito, il prezzo arriva in sottofondo
+  if (unlinkedMode){ // arrivo dall'elenco "Da collegare": avviso, poi torno all'elenco; il prezzo arriva in sottofondo
+    refreshValue(id, true);
+    await showNotice("Collegamento effettuato", prev ? `«${prev.album}» di ${prev.artist} è collegato alla sua stampa su Discogs.` : "");
     showUnlinked(`«${prev ? prev.album : "Disco"}» collegato a Discogs.`);
-    refreshValue(id, true); return;
+    return;
   }
   if (!$("detOv").hidden) drawValue(id);
   const fromForm = !$("formOv").hidden && state.editing === id;
@@ -1882,6 +1885,17 @@ function askConfirm(title, text, ok = "Conferma", danger = false){
   });
 }
 
+// Avviso con il solo tasto OK
+function showNotice(title, text){
+  return new Promise(resolve => {
+    $("cfTitle").textContent = title; $("cfText").textContent = text || "";
+    const y = $("cfYes"), n = $("cfNo"), ov = $("cfOv");
+    y.textContent = "OK"; y.className = "btn"; n.hidden = true;
+    const done = () => { ov.hidden = true; n.hidden = false; y.onclick = n.onclick = ov.onclick = null; resolve(); };
+    y.onclick = done; ov.onclick = null;
+    ov.hidden = false;
+  });
+}
 /* ---------- Scheda ---------- */
 const SIDE_RE = /^(lato|side|disco|disc|cd)\s*[a-z0-9]{0,3}\s*:?$/i;
 // Solo l'elenco dei brani: niente "Lato A", "Disco 2", numeri o sigle tipo A1
