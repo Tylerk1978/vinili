@@ -307,6 +307,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .chtx b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chtx span{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chtx i{font-style:normal;color:var(--accent)}
+.chtx i.st-incoming{color:#7fb3d5}
+.chtx i.st-wish{color:#c9a0dc}
+.chth.web{border:0;opacity:.8}
 .chbtns{display:flex;gap:4px;flex:0 0 auto}
 .chbtns button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--field);color:var(--ink);font-size:13px;cursor:pointer}
 .chbtns button:disabled{opacity:.3}
@@ -548,7 +551,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.88";
+const APP_VERSION = "1.89";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1464,37 +1467,65 @@ function seedCharts(){
   for (const [y, l] of Object.entries(CHART_SEED)) if (!c[y]) c[y] = l;
   setMeta("charts", c); setMeta("chartsSeeded", true);
 }
+// Disco collegato alla voce di classifica: prima la collezione, poi "in arrivo", poi la wishlist
 function chartDisc(e){
-  if (e.id){ const d = state.discs.find(x => x.id === e.id && !x.list); if (d) return d; }
-  const k = chartKey(e.artist, e.album);
-  return state.discs.find(d => !d.list && chartKey(d.artist, d.album) === k) || null;
+  if (e.id){ const d = state.discs.find(x => x.id === e.id); if (d) return d; }
+  const k = chartKey(e.artist, e.album), rank = d => !d.list ? 0 : d.list === "incoming" ? 1 : 2;
+  return state.discs.filter(d => chartKey(d.artist, d.album) === k).sort((a, b) => rank(a) - rank(b))[0] || null;
+}
+const chartStatus = d => !d ? "" : !d.list ? "in collezione" : d.list === "incoming" ? "in arrivo" : "in wishlist";
+// Copertine dei dischi che non hai: le cerco online una volta (Deezer, poi Apple Music) e le ricordo nella classifica
+const chartCoverTried = new Set();
+let chartCoverRun = false;
+async function fetchChartCovers(year){
+  if (chartCoverRun || !navigator.onLine) return;
+  chartCoverRun = true;
+  try {
+    const todo = (getCharts()[year] || []).map((e, i) => ({ e, i })).filter(x => !chartDisc(x.e) && !x.e.cover && !chartCoverTried.has(chartKey(x.e.artist, x.e.album)));
+    for (const { e } of todo){
+      const k = chartKey(e.artist, e.album); chartCoverTried.add(k);
+      let best = null;
+      try {
+        const res = (await Promise.all([srDeezer(e.artist, e.album), srApple(e.artist, e.album)])).flat().map(r => ({ ...r, score: srScore(r, e.artist, e.album) })).sort((a, b) => b.score - a.score);
+        if (res[0] && res[0].score >= 60) best = res[0];
+      } catch(err){}
+      if (!best) continue;
+      const c = { ...getCharts() }, list = (c[year] || []).map(x => chartKey(x.artist, x.album) === k ? { ...x, cover: best.thumb, coverBig: best.art } : x);
+      c[year] = list; setMeta("charts", c);
+      if (state.view === "statistiche" && state.statsSub === "classifica" && state.chartYear === year){
+        const row = [...document.querySelectorAll(".chrow")].find(r => { const x = list[+r.dataset.i]; return x && chartKey(x.artist, x.album) === k; });
+        const th = row && row.querySelector(".chth"); if (th && !th.querySelector("img")){ th.innerHTML = `<img src="${esc(best.thumb)}" alt="" loading="lazy">`; th.classList.add("web"); }
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } finally { chartCoverRun = false; }
 }
 let chartEdit = false;
 function renderChartsHome(){
   const c = getCharts(), years = Object.keys(c).sort((a, b) => b - a);
   $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">Le mie classifiche</h2>
     <p class="note">${years.length ? "Tocca un anno per vedere la classifica." : "Non hai ancora classifiche."}</p>
-    ${years.map(y => { const n = c[y].length, own = c[y].filter(chartDisc).length; return `<button class="subcard" data-chart="${esc(y)}"><span class="t">${esc(y)}</span><span class="s">${n} ${n === 1 ? "disco" : "dischi"} · ${own} in collezione</span><span class="chev" style="font-size:22px">›</span></button>`; }).join("")}
+    ${years.map(y => { const n = c[y].length, ds = c[y].map(chartDisc), own = ds.filter(d => d && !d.list).length, oth = ds.filter(d => d && d.list).length; return `<button class="subcard" data-chart="${esc(y)}"><span class="t">${esc(y)}</span><span class="s">${n} ${n === 1 ? "disco" : "dischi"} · ${own} in collezione${oth ? ` · ${oth} in arrivo o wishlist` : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; }).join("")}
     <div class="actions" style="justify-content:flex-start"><button class="btn ghost small" id="chNewYear">+ Nuova classifica</button></div></div>`;
 }
 function renderChart(){
   const y = state.chartYear, list = getCharts()[y] || [];
-  const coll = state.discs.filter(d => !d.list).sort((a, b) => sortName(a.artist).localeCompare(sortName(b.artist), "it") || String(a.album).localeCompare(String(b.album), "it"));
+  const coll = state.discs.slice().sort((a, b) => sortName(a.artist).localeCompare(sortName(b.artist), "it") || String(a.album).localeCompare(String(b.album), "it"));
   const rows = list.map((e, i) => {
     const d = chartDisc(e);
     return `<div class="chrow${d ? " own" : ""}" data-i="${i}">
       <span class="chpos">${i + 1}</span>
-      <span class="chth"${d ? ` data-cov="${esc(d.id)}"` : ""}></span>
-      <span class="chtx"><b>${esc(e.album)}</b><span>${esc(e.artist)}${d ? ` · <i>in collezione</i>` : ""}</span></span>
+      <span class="chth${!d && e.cover ? " web" : ""}"${d ? ` data-cov="${esc(d.id)}"` : ""}>${!d && e.cover ? `<img src="${esc(e.cover)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</span>
+      <span class="chtx"><b>${esc(e.album)}</b><span>${esc(e.artist)}${d ? ` · <i class="st-${d.list || "coll"}">${chartStatus(d)}</i>` : ""}</span></span>
       ${chartEdit ? `<span class="chbtns"><button type="button" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="Sali">▲</button><button type="button" data-mv="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Scendi">▼</button><button type="button" data-del="1" aria-label="Togli">✕</button></span>` : (d ? `<span class="chev">›</span>` : "")}
     </div>`;
   }).join("");
   $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Le mie classifiche</button>
     <div class="chhead"><h2 style="margin:8px 0 0">Classifica ${esc(y)}</h2><button class="btn ${chartEdit ? "" : "ghost "}small" id="chEdit">${chartEdit ? "Fatto" : "Modifica"}</button></div>
-    <p class="note">${chartEdit ? "Usa ▲ ▼ per spostare un disco di una posizione, ✕ per toglierlo. Le modifiche si salvano subito." : `${list.length} ${list.length === 1 ? "disco" : "dischi"}. I dischi che hai in collezione hanno la copertina: toccali per aprire la scheda.`}</p>
+    <p class="note">${chartEdit ? "Usa ▲ ▼ per spostare un disco di una posizione, ✕ per toglierlo. Le modifiche si salvano subito." : `${list.length} ${list.length === 1 ? "disco" : "dischi"}. Tocca un disco in collezione, in arrivo o in wishlist per aprire la sua scheda.`}</p>
     <div class="chlist">${rows || `<p class="note">La classifica è vuota: tocca Modifica per aggiungere i dischi.</p>`}</div>
     ${chartEdit ? `<div class="chadd"><h3 style="font-size:20px;margin:18px 0 6px">Aggiungi un disco</h3>
-      <select class="field" id="chPick"><option value="">Scegli dalla collezione…</option>${coll.map(d => `<option value="${esc(d.id)}">${esc(d.artist)} – ${esc(d.album)}</option>`).join("")}</select>
+      <select class="field" id="chPick"><option value="">Scegli tra i tuoi dischi…</option>${coll.map(d => `<option value="${esc(d.id)}">${esc(d.artist)} – ${esc(d.album)}${d.list ? ` (${chartStatus(d)})` : ""}</option>`).join("")}</select>
       <p class="hint" style="margin:8px 0 4px">…oppure scrivilo, anche se non lo hai:</p>
       <input class="field" id="chArtist" placeholder="Artista" autocomplete="off" style="margin-bottom:8px">
       <input class="field" id="chAlbum" placeholder="Album" autocomplete="off">
@@ -1503,6 +1534,7 @@ function renderChart(){
       <div class="actions" style="justify-content:space-between"><button class="btn ghost small" id="chDelYear" style="color:#e08a7c">Elimina classifica</button><button class="btn small" id="chAdd">Aggiungi</button></div></div>` : ""}
   </div>`;
   $("viewStats").querySelectorAll(".chth[data-cov]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cov); const src = d && await coverSrc(d); if (src && el.isConnected) el.innerHTML = `<img src="${esc(src)}" alt="" loading="lazy">`; });
+  fetchChartCovers(y);
 }
 async function chartClick(e){
   const y = state.chartYear;
@@ -2762,7 +2794,7 @@ function parseBackup(text){
   if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
   for (const f of ["artistPhotoUrls", "artistAuto", "artistManual"]) if (data && data[f] && typeof data[f] === "object") out[f] = data[f];
   if (data && Array.isArray(data.releases)) out.releases = cleanRels(data.releases);
-  if (data && data.charts && typeof data.charts === "object"){ const c = {}; for (const [y, l] of Object.entries(data.charts)) if (/^\d{4}$/.test(y) && Array.isArray(l)) c[y] = l.filter(x => x && typeof x.artist === "string" && typeof x.album === "string").map(x => ({ artist: x.artist, album: x.album, ...(typeof x.id === "string" ? { id: x.id } : {}) })); out.charts = c; }
+  if (data && data.charts && typeof data.charts === "object"){ const c = {}; for (const [y, l] of Object.entries(data.charts)) if (/^\d{4}$/.test(y) && Array.isArray(l)) c[y] = l.filter(x => x && typeof x.artist === "string" && typeof x.album === "string").map(x => ({ artist: x.artist, album: x.album, ...(typeof x.id === "string" ? { id: x.id } : {}), ...(/^https:\/\//.test(x.cover || "") ? { cover: x.cover, coverBig: /^https:\/\//.test(x.coverBig || "") ? x.coverBig : x.cover } : {}) })); out.charts = c; }
   if (data && Array.isArray(data.genresExtra)) out.genresExtra = data.genresExtra.filter(g => typeof g === "string" && g.trim()).map(g => g.trim().slice(0, 30));
   return out;
 }
