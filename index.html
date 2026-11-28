@@ -565,7 +565,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.95";
+const APP_VERSION = "1.96";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1354,8 +1354,9 @@ function openDgLink(id){
   $("dgOpen").href = `https://www.discogs.com/search/?q=${encodeURIComponent(d.artist + " " + d.album)}&type=all&format_exact=Vinyl`;
   $("dgOv").hidden = false;
 }
-$("dgClose").onclick = () => { $("dgOv").hidden = true; dgFor = null; };
-$("dgOv").onclick = e => { if (e.target === $("dgOv")){ $("dgOv").hidden = true; dgFor = null; } };
+function closeDgLink(){ $("dgOv").hidden = true; dgFor = null; if (unlinkedMode) showUnlinked(" "); }
+$("dgClose").onclick = closeDgLink;
+$("dgOv").onclick = e => { if (e.target === $("dgOv")) closeDgLink(); };
 async function linkDisc(relId, info){
   const id = dgFor; if (!id) return;
   const prev = state.discs.find(x => x.id === id);
@@ -1363,6 +1364,10 @@ async function linkDisc(relId, info){
   if (prev && prev.discogsId !== String(relId)) patch.condition = prev.condition || null;
   patchDisc(id, patch);
   $("dgOv").hidden = true; dgFor = null;
+  if (unlinkedMode){ // arrivo dall'elenco "Da collegare": ci torno subito, il prezzo arriva in sottofondo
+    showUnlinked(`«${prev ? prev.album : "Disco"}» collegato a Discogs.`);
+    refreshValue(id, true); return;
+  }
   if (!$("detOv").hidden) drawValue(id);
   const fromForm = !$("formOv").hidden && state.editing === id;
   if (fromForm) openDgPanel(id, "Disco collegato: chiedo il prezzo…");
@@ -2975,17 +2980,23 @@ $("homeBanner").addEventListener("click", async e => {
   if (e.target.id === "bkLater"){ setMeta("snoozeUntil", snoozeTomorrow()); render(); }
   if (e.target.id === "bkNow"){ openMenu("", "backup"); await exportBackup(); }
 });
-function showUnlinked(){
-  state.fromUnlinked = false;
+// "Dischi da collegare a Discogs": tocchi un disco → si apre subito il collegamento → dopo torni qui, allo stesso punto
+let unlinkedMode = false, unlinkedScroll = 0;
+function showUnlinked(msg){
+  state.fromUnlinked = false; unlinkedMode = false;
   const list = collection().filter(d => !d.discogsId).sort(discSort);
   $("menu").innerHTML = `<h3>Da collegare a Discogs</h3>
-    <p>${list.length ? `${list.length === 1 ? "1 disco in collezione non è ancora collegato alla sua stampa" : list.length + " dischi in collezione non sono ancora collegati alla loro stampa"} su Discogs. Tocca un disco per aprire la scheda, poi «Collega a Discogs» nel riquadro del valore.` : "Tutti i dischi in collezione sono collegati a Discogs."}</p>
+    <p>${list.length ? `${list.length === 1 ? "1 disco in collezione non è ancora collegato alla sua stampa" : list.length + " dischi in collezione non sono ancora collegati alla loro stampa"} su Discogs. Tocca un disco per collegarlo: poi torni qui e passi al successivo.` : "Tutti i dischi in collezione sono collegati a Discogs."}</p>
+    <div class="ok">${esc(msg || "")}</div>
     <div class="vlist">${list.map(d => `<button class="grp-item" data-id="${esc(d.id)}"><span><b>${esc(d.album)}</b><span>${esc(d.artist)}${d.year ? " · " + d.year : ""}</span></span><span class="vv">›</span></button>`).join("")}</div>
     <div class="actions"><button class="btn ghost" id="uBack">‹ Menu</button><button class="btn" id="uClose">Chiudi</button></div>`;
-  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("menuOv").hidden = false;
+  $("menu").scrollTop = msg ? unlinkedScroll : 0;
   $("uBack").onclick = () => openMenu();
   $("uClose").onclick = () => { $("menuOv").hidden = true; };
-  $("menu").querySelectorAll(".grp-item").forEach(b => b.onclick = async () => { $("menuOv").hidden = true; await openDetail(b.dataset.id); state.fromUnlinked = true; });
+  $("menu").querySelectorAll(".grp-item").forEach(b => b.onclick = () => {
+    unlinkedScroll = $("menu").scrollTop; $("menuOv").hidden = true; unlinkedMode = true; openDgLink(b.dataset.id);
+  });
 }
 function backToUnlinked(){ if (state.fromUnlinked){ state.fromUnlinked = false; showUnlinked(); } }
 let menuFolder = null;
