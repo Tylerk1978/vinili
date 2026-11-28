@@ -296,6 +296,21 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .grp-item.tl-item .tl-date{flex:0 0 86px;margin:0;color:var(--accent);font-size:13px;font-variant-numeric:tabular-nums}
 .grp-item.tl-item .tl-txt{display:block;margin:0;color:var(--ink);font-size:inherit;min-width:0}
 .grp-item.tl-item .tl-txt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chrow{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #3d3226}
+.chrow.own{cursor:pointer}
+.chpos{flex:0 0 34px;text-align:right;font:600 26px "Cormorant Garamond",Georgia,serif;color:var(--accent)}
+.chth{flex:0 0 auto;width:48px;height:48px;border-radius:3px;overflow:hidden;background:#100c09;border:1px dashed #3d3226}
+.chrow.own .chth{border:0}
+.chth img{width:100%;height:100%;object-fit:cover;display:block}
+.chtx{flex:1;min-width:0}
+.chtx b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chtx span{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chtx i{font-style:normal;color:var(--accent)}
+.chbtns{display:flex;gap:4px;flex:0 0 auto}
+.chbtns button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--field);color:var(--ink);font-size:13px;cursor:pointer}
+.chbtns button:disabled{opacity:.3}
+.chrow .chev{color:var(--muted);font-size:20px}
 .grp-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #3d3226;padding:9px 2px;color:var(--ink);cursor:pointer;font:inherit}
 .grp-item b{display:block;font-size:13.5px}
 .grp-item span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -533,7 +548,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.86";
+const APP_VERSION = "1.88";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1435,11 +1450,103 @@ function groups(kind){
 const SUBS = { genere: "Per genere", artista: "Per artista", data: "Per data di uscita", voto: "Per voto" };
 const DATE_SUBS = { anno: "Per anno", decennio: "Per decennio" };
 const STAT_TITLES = { ...SUBS, ...DATE_SUBS };
-function statsUp(){ state.statsSub = DATE_SUBS[state.statsSub] || state.statsSub === "timeline" ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
+function statsUp(){ chartEdit = false; state.statsSub = state.statsSub === "classifica" ? "classifiche" : DATE_SUBS[state.statsSub] || state.statsSub === "timeline" ? "data" : null; state.statsOpen = null; renderStats(); window.scrollTo(0,0); }
+/* ---------- Le mie classifiche ---------- */
+function getCharts(){ const c = getMeta().charts; return c && typeof c === "object" ? c : {}; }
+function setChart(year, list){ const c = { ...getCharts() }; if (list) c[year] = list.slice(0, 50); else delete c[year]; setMeta("charts", c); setMeta("lastChangeAt", new Date().toISOString()); }
+const chartFold = s => String(s || "").replace(/[øØ]/g, "o").replace(/[æÆ]/g, "ae").replace(/ß/g, "ss");
+const chartKey = (a, b) => dupKey(chartFold(a)) + "|" + dupKey(chartFold(b));
+// Classifiche 2020–2026 date da Massimo: caricate una volta sola (se poi le modifichi o le elimini, restano come le lasci)
+const CHART_SEED = {"2020": [{"artist": "Deftones", "album": "Ohms"}, {"artist": "The Ocean", "album": "Phanerozoic II: Mesozoic | Cenozoic"}, {"artist": "Bring Me The Horizon", "album": "Post Human: Survival Horror"}, {"artist": "Loathe", "album": "I Let It In and It Took Everything"}, {"artist": "All Them Witches", "album": "Nothing As The Ideal"}, {"artist": "END", "album": "Splinters From An Ever-Changing Face"}, {"artist": "Boundaries", "album": "Your Receding Warmth"}, {"artist": "Tallah", "album": "Matriphagy"}, {"artist": "Emmure", "album": "Hindsight"}, {"artist": "Sevendust", "album": "Blood & Stone"}, {"artist": "Aesop Rock", "album": "Spirit World Field Guide"}, {"artist": "Code Orange", "album": "Underneath"}, {"artist": "Hatebreed", "album": "Weight Of The False Self"}, {"artist": "Diamond Construct", "album": "DCX2"}, {"artist": "Greg Puciato", "album": "Child Soldier: Creator Of God"}, {"artist": "Run The Jewels", "album": "RTJ4"}, {"artist": "E Minor", "album": "When The Cold Truth Has Worn Its Miserable Welcome Out"}, {"artist": "Calibro 35", "album": "Momentum"}, {"artist": "Sumac", "album": "May You Be Held"}, {"artist": "Nothing But Thieves", "album": "Moral Panic"}], "2021": [{"artist": "Converge and Chelsea Wolfe", "album": "Bloodmoon: I"}, {"artist": "Every Time I Die", "album": "Radical"}, {"artist": "Thrice", "album": "Horizons/East"}, {"artist": "Architects", "album": "For Those That Wish To Exist"}, {"artist": "Cult Of Luna", "album": "The Raging River"}, {"artist": "Mastodon", "album": "Hushed And Grim"}, {"artist": "Red Fang", "album": "Arrows"}, {"artist": "Frontierer", "album": "Oxidized"}, {"artist": "Jerry Cantrell", "album": "Brighten"}, {"artist": "Hippotraktor", "album": "Meridian"}, {"artist": "Billie Eilish", "album": "Happier Than Ever"}, {"artist": "Tetrarch", "album": "Unstable"}, {"artist": "Thornhill", "album": "The Dark Pool"}, {"artist": "Margherita Vicario", "album": "Bingo"}, {"artist": "XIII", "album": "Daddy Long Legs 2.0"}, {"artist": "Employed To Serve", "album": "Conquering"}, {"artist": "Erra", "album": "Erra"}, {"artist": "Turnstile", "album": "Glow On"}, {"artist": "Spiritbox", "album": "Eternal Blue"}, {"artist": "Whitechapel", "album": "Kin"}], "2022": [{"artist": "Norma Jean", "album": "Deathrattle Sing For Me"}, {"artist": "Alexisonfire", "album": "Otherness"}, {"artist": "Cult Of Luna", "album": "The Long Road North"}, {"artist": "Bush", "album": "The Art Of Survival"}, {"artist": "Excide", "album": "Deliberate Revolver"}, {"artist": "Inclination", "album": "Unaltered Perspective"}, {"artist": "Russian Circles", "album": "Gnosis"}, {"artist": "Underøath", "album": "Voyeurist"}, {"artist": "Birds In Row", "album": "Gris Klein"}, {"artist": "Static Dress", "album": "Rouge Carpet Disaster"}, {"artist": "Ibaraki", "album": "Rashomon"}, {"artist": "Zeal & Ardor", "album": "Zeal & Ardor"}, {"artist": "The Callous Daoboys", "album": "Celebrity Therapist"}, {"artist": "Destrage", "album": "So Much. Too Much."}, {"artist": "Verdena", "album": "Volevo Magia"}, {"artist": "Architects", "album": "The Classic Symptoms Of A Broken Spirit"}, {"artist": "Thoughtcrimes", "album": "Altered Pasts"}, {"artist": "Sellouts", "album": "Sellouts"}, {"artist": "Greyhaven", "album": "This Bright And Beautiful World"}, {"artist": "Counterparts", "album": "A Eulogy For Those Still Here"}], "2023": [{"artist": "The Ocean", "album": "Holocene"}, {"artist": "Code Orange", "album": "The Above"}, {"artist": "City and Colour", "album": "The Love Still Held Me Near"}, {"artist": "Aesop Rock", "album": "Integrated Tech Solutions"}, {"artist": "Harm's Way", "album": "Common Suffering"}, {"artist": "Johnny Booth", "album": "Moments Elsewhere"}, {"artist": "Prof", "album": "Horse"}, {"artist": "Crosses", "album": "Goodnight, God Bless, I Love U, Delete."}, {"artist": "END", "album": "The Sin Of Human Frailty"}, {"artist": "Periphery", "album": "Periphery V: Djent Is Not A Genre"}, {"artist": "Unprocessed", "album": "...And Everything In Between"}, {"artist": "Chamber", "album": "A Love To Kill For"}, {"artist": "Will Haven", "album": "VII"}, {"artist": "Fox Lake", "album": "Fear & Loathing"}, {"artist": "Enter Shikari", "album": "A Kiss For The Whole World"}, {"artist": "Project 86", "album": "Omni, Pt. 1"}, {"artist": "Nonpoint", "album": "Heartless"}, {"artist": "August Burns Red", "album": "Death Below"}, {"artist": "Filter", "album": "The Algorithm"}, {"artist": "Queens Of The Stone Age", "album": "In Times New Roman..."}], "2024": [{"artist": "Thief", "album": "Bleed, Memory"}, {"artist": "Neon Nightmare", "album": "Faded Dream"}, {"artist": "Better Lovers", "album": "Highly Irresponsible"}, {"artist": "Counterparts", "album": "Heaven Let Them Die"}, {"artist": "Little Albert", "album": "The Road Not Taken"}, {"artist": "Bipolar Architecture", "album": "Metaphysicize"}, {"artist": "Many Eyes", "album": "The Light Age"}, {"artist": "Glassing", "album": "From The Other Side Of The Mirror"}, {"artist": "Kendrick Lamar", "album": "GNX"}, {"artist": "Thou", "album": "Umbilical"}, {"artist": "Marilyn Manson", "album": "One Assassination Under God - Chapter 1"}, {"artist": "Whores.", "album": "War."}, {"artist": "Billie Eilish", "album": "Hit Me Hard And Soft"}, {"artist": "Jerry Cantrell", "album": "I Want Blood"}, {"artist": "Arms and Sleepers", "album": "What Tomorrow Brings"}, {"artist": "Throw", "album": "Excessive Guilt"}, {"artist": "Hippotraktor", "album": "Stasis"}, {"artist": "Linkin Park", "album": "From Zero"}, {"artist": "Filth", "album": "Southern Ostility"}, {"artist": "The Barbarians Of California", "album": "And Now I'm Just Gnashing My Teeth"}], "2025": [{"artist": "Deftones", "album": "Private Music"}, {"artist": "Heretoir", "album": "Solastalgia"}, {"artist": "Aesop Rock", "album": "Black Hole Superette"}, {"artist": "Thrice", "album": "Horizons/West"}, {"artist": "Thornhill", "album": "Bodies"}, {"artist": "Greyhaven", "album": "Keep It Quiet"}, {"artist": "Raging Speedhorn", "album": "Night Wolf"}, {"artist": "McKinley Dixon", "album": "Magic, Alive!"}, {"artist": "Biohazard", "album": "Divided We Fall"}, {"artist": "La Dispute", "album": "No One Was Driving The Car"}, {"artist": "Nine Inch Nails", "album": "Tron: Ares (OST)"}, {"artist": "Architects", "album": "The Sky, The Earth & All Between"}, {"artist": "Killswitch Engage", "album": "This Consequence"}, {"artist": "Stray From The Path", "album": "Clockworked"}, {"artist": "Underøath", "album": "The Place After This One"}, {"artist": "Messa", "album": "The Spin"}, {"artist": "LANDMVRKS", "album": "The Darkest Place I've Ever Been"}, {"artist": "16", "album": "Guides For The Misguided"}, {"artist": "Jehnny Beth", "album": "You Heartbreaker, You"}, {"artist": "Bush", "album": "I Beat Loneliness"}], "2026": [{"artist": "Cult Of Luna", "album": "In The Shadow Of Your Shadow"}, {"artist": "Neurosis", "album": "An Undying Love For A Burning World"}, {"artist": "Chat Pile", "album": "Who Loves The Sun"}, {"artist": "Poison The Well", "album": "Peace In Place"}, {"artist": "Mastodon", "album": "Marrow Deep"}, {"artist": "Down", "album": "Volume V"}, {"artist": "August Burns Red", "album": "Season Of Surrender"}, {"artist": "The Ocean", "album": "Solaris"}, {"artist": "Converge", "album": "Love Is Not Enough"}, {"artist": "Converge", "album": "Hum Of Hurt"}, {"artist": "Rosetta", "album": "Temporal Lapse"}, {"artist": "Comeback Kid", "album": "Choosen Hell"}, {"artist": "Emma Ruth Rundle", "album": "These Killing Times"}, {"artist": "Blueneck", "album": "Moonlighting"}, {"artist": "Russian Circles", "album": "Nine"}, {"artist": "Static Dress", "album": "Injury Episode"}, {"artist": "All Them Witches", "album": "House Of Mirrors"}, {"artist": "The Barbarians Of California", "album": "Megatons"}, {"artist": "Ditz", "album": "Never Exhale"}, {"artist": "Urne", "album": "Setting Fire To The Sky"}]};
+function seedCharts(){
+  const m = getMeta(); if (m.chartsSeeded) return;
+  const c = { ...getCharts() };
+  for (const [y, l] of Object.entries(CHART_SEED)) if (!c[y]) c[y] = l;
+  setMeta("charts", c); setMeta("chartsSeeded", true);
+}
+function chartDisc(e){
+  if (e.id){ const d = state.discs.find(x => x.id === e.id && !x.list); if (d) return d; }
+  const k = chartKey(e.artist, e.album);
+  return state.discs.find(d => !d.list && chartKey(d.artist, d.album) === k) || null;
+}
+let chartEdit = false;
+function renderChartsHome(){
+  const c = getCharts(), years = Object.keys(c).sort((a, b) => b - a);
+  $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Statistiche</button><h2 style="margin-top:8px">Le mie classifiche</h2>
+    <p class="note">${years.length ? "Tocca un anno per vedere la classifica." : "Non hai ancora classifiche."}</p>
+    ${years.map(y => { const n = c[y].length, own = c[y].filter(chartDisc).length; return `<button class="subcard" data-chart="${esc(y)}"><span class="t">${esc(y)}</span><span class="s">${n} ${n === 1 ? "disco" : "dischi"} · ${own} in collezione</span><span class="chev" style="font-size:22px">›</span></button>`; }).join("")}
+    <div class="actions" style="justify-content:flex-start"><button class="btn ghost small" id="chNewYear">+ Nuova classifica</button></div></div>`;
+}
+function renderChart(){
+  const y = state.chartYear, list = getCharts()[y] || [];
+  const coll = state.discs.filter(d => !d.list).sort((a, b) => sortName(a.artist).localeCompare(sortName(b.artist), "it") || String(a.album).localeCompare(String(b.album), "it"));
+  const rows = list.map((e, i) => {
+    const d = chartDisc(e);
+    return `<div class="chrow${d ? " own" : ""}" data-i="${i}">
+      <span class="chpos">${i + 1}</span>
+      <span class="chth"${d ? ` data-cov="${esc(d.id)}"` : ""}></span>
+      <span class="chtx"><b>${esc(e.album)}</b><span>${esc(e.artist)}${d ? ` · <i>in collezione</i>` : ""}</span></span>
+      ${chartEdit ? `<span class="chbtns"><button type="button" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="Sali">▲</button><button type="button" data-mv="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Scendi">▼</button><button type="button" data-del="1" aria-label="Togli">✕</button></span>` : (d ? `<span class="chev">›</span>` : "")}
+    </div>`;
+  }).join("");
+  $("viewStats").innerHTML = `<div class="apage"><button class="backlink" id="sBack">‹ Le mie classifiche</button>
+    <div class="chhead"><h2 style="margin:8px 0 0">Classifica ${esc(y)}</h2><button class="btn ${chartEdit ? "" : "ghost "}small" id="chEdit">${chartEdit ? "Fatto" : "Modifica"}</button></div>
+    <p class="note">${chartEdit ? "Usa ▲ ▼ per spostare un disco di una posizione, ✕ per toglierlo. Le modifiche si salvano subito." : `${list.length} ${list.length === 1 ? "disco" : "dischi"}. I dischi che hai in collezione hanno la copertina: toccali per aprire la scheda.`}</p>
+    <div class="chlist">${rows || `<p class="note">La classifica è vuota: tocca Modifica per aggiungere i dischi.</p>`}</div>
+    ${chartEdit ? `<div class="chadd"><h3 style="font-size:20px;margin:18px 0 6px">Aggiungi un disco</h3>
+      <select class="field" id="chPick"><option value="">Scegli dalla collezione…</option>${coll.map(d => `<option value="${esc(d.id)}">${esc(d.artist)} – ${esc(d.album)}</option>`).join("")}</select>
+      <p class="hint" style="margin:8px 0 4px">…oppure scrivilo, anche se non lo hai:</p>
+      <input class="field" id="chArtist" placeholder="Artista" autocomplete="off" style="margin-bottom:8px">
+      <input class="field" id="chAlbum" placeholder="Album" autocomplete="off">
+      <label for="chPos">Posizione</label><select class="field" id="chPos">${Array.from({ length: list.length + 1 }, (_, i) => `<option value="${i}"${i === list.length ? " selected" : ""}>${i + 1}°</option>`).join("")}</select>
+      <div class="err" id="chErr"></div>
+      <div class="actions" style="justify-content:space-between"><button class="btn ghost small" id="chDelYear" style="color:#e08a7c">Elimina classifica</button><button class="btn small" id="chAdd">Aggiungi</button></div></div>` : ""}
+  </div>`;
+  $("viewStats").querySelectorAll(".chth[data-cov]").forEach(async el => { const d = state.discs.find(x => x.id === el.dataset.cov); const src = d && await coverSrc(d); if (src && el.isConnected) el.innerHTML = `<img src="${esc(src)}" alt="" loading="lazy">`; });
+}
+async function chartClick(e){
+  const y = state.chartYear;
+  if (e.target.closest("#chNewYear")){
+    $("menu").innerHTML = `<h3>Nuova classifica</h3><label for="chYear">Anno</label><input class="field" id="chYear" type="number" inputmode="numeric" value="${new Date().getFullYear()}">
+      <div class="err" id="chYErr"></div><div class="actions"><button class="btn ghost" id="chYNo">Annulla</button><button class="btn" id="chYOk">Crea</button></div>`;
+    $("menuOv").hidden = false;
+    $("chYNo").onclick = () => { $("menuOv").hidden = true; };
+    $("chYOk").onclick = () => {
+      const yr = parseInt($("chYear").value, 10); if (!yr || yr < 1900 || yr > 2100){ $("chYErr").textContent = "Scrivi un anno valido."; return; }
+      if (!getCharts()[yr]) setChart(String(yr), []);
+      $("menuOv").hidden = true; state.statsSub = "classifica"; state.chartYear = String(yr); chartEdit = true; renderStats(); window.scrollTo(0, 0);
+    };
+    return true;
+  }
+  const yc = e.target.closest("[data-chart]"); if (yc){ state.statsSub = "classifica"; state.chartYear = yc.dataset.chart; chartEdit = false; renderStats(); window.scrollTo(0, 0); return true; }
+  if (state.statsSub !== "classifica") return false;
+  if (e.target.closest("#chEdit")){ chartEdit = !chartEdit; renderStats(); return true; }
+  const list = [...(getCharts()[y] || [])];
+  const row = e.target.closest(".chrow");
+  const mv = e.target.closest("[data-mv]");
+  if (mv && row){ const i = +row.dataset.i, j = i + Number(mv.dataset.mv); if (j < 0 || j >= list.length) return true; [list[i], list[j]] = [list[j], list[i]]; setChart(y, list); const sy = window.scrollY; renderStats(); window.scrollTo(0, sy); return true; }
+  if (e.target.closest("[data-del]") && row){ const i = +row.dataset.i; if (!(await askConfirm("Togliere dalla classifica?", `«${list[i].album}» di ${list[i].artist} esce dalla classifica ${y}; gli altri salgono di una posizione.`, "Togli", true))) return true; list.splice(i, 1); setChart(y, list); const sy = window.scrollY; renderStats(); window.scrollTo(0, sy); return true; }
+  if (e.target.closest("#chAdd")){
+    const pick = $("chPick").value, d = pick ? state.discs.find(x => x.id === pick) : null;
+    const artist = d ? d.artist : $("chArtist").value.trim(), album = d ? d.album : $("chAlbum").value.trim();
+    if (!artist || !album){ $("chErr").textContent = "Scegli un disco dalla collezione oppure scrivi artista e album."; return true; }
+    if (list.some(x => chartKey(x.artist, x.album) === chartKey(artist, album))){ $("chErr").textContent = "Questo disco è già in classifica."; return true; }
+    list.splice(Number($("chPos").value), 0, d ? { artist, album, id: d.id } : { artist, album });
+    setChart(y, list); const sy = window.scrollY; renderStats(); window.scrollTo(0, sy); return true;
+  }
+  if (e.target.closest("#chDelYear")){
+    if (!(await askConfirm(`Eliminare la classifica ${y}?`, "La classifica verrà cancellata. I dischi restano in collezione.", "Elimina", true))) return true;
+    setChart(y, null); state.statsSub = "classifiche"; chartEdit = false; renderStats(); window.scrollTo(0, 0); return true;
+  }
+  if (row && !chartEdit){ const d = chartDisc(list[+row.dataset.i]); if (d) openDetail(d.id); return true; }
+  return false;
+}
 const subcardHTML = (k, l, n) => `<button class="subcard" data-sub="${k}"><span class="t">${l}</span><span class="s">${n}</span><span class="chev" style="font-size:22px">›</span></button>`;
 function renderStats(){
   const coll = collection();
   const sub = state.statsSub;
+  if (sub === "classifiche") return renderChartsHome();
+  if (sub === "classifica") return renderChart();
   if (sub === "valore"){
     const t = valueTotals(), b = state.bulk;
     const rows = collection().map(d => ({ d, v: discValue(d) })).filter(x => x.v).sort((a, b) => b.v.v - a.v.v);
@@ -1487,12 +1594,14 @@ function renderStats(){
     <div class="stat-hero"><div class="num">${coll.length}</div><div class="lbl">dischi in collezione</div></div>
     <div class="stat-mini"><div><b>${nA}</b>artisti</div><div><b>${allGenres().length}</b>generi</div><div><b>${listOf("wish").length}</b>in wishlist</div><div><b>${listOf("incoming").length}</b>in arrivo</div></div>
     ${(() => { const t = valueTotals(); return `<button class="subcard" data-sub="valore" style="margin-top:18px"><span class="t">Valore della collezione</span><span class="s">${t.n ? money(t.tot) : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; })()}
+    ${(() => { const ys = Object.keys(getCharts()); return `<button class="subcard" data-sub="classifiche" style="margin-top:10px"><span class="t">Le mie classifiche</span><span class="s">${ys.length ? (ys.length === 1 ? "1 anno" : ys.length + " anni") : ""}</span><span class="chev" style="font-size:22px">›</span></button>`; })()}
     <h2>Esplora</h2>
     ${Object.entries(SUBS).map(([k, l]) => subcardHTML(k, l, k === "data" ? "" : groups(k).length)).join("")}
   </div>`;
 }
-$("viewStats").addEventListener("click", e => {
+$("viewStats").addEventListener("click", async e => {
   if (e.target.closest("#sBack")) return statsUp();
+  if ((state.statsSub === "classifiche" || state.statsSub === "classifica") && await chartClick(e)) return;
   if (e.target.closest("#sBulk")) return bulkRefresh();
   if (e.target.closest("#sCrit")) return openCriteria();
   const sc = e.target.closest(".subcard"); if (sc){ state.statsSub = sc.dataset.sub; state.statsOpen = null; renderStats(); window.scrollTo(0,0); return; }
@@ -2575,7 +2684,7 @@ async function prepareBackup(progress){
     if (++n % 20 === 0) progress(`Preparo il backup… ${Math.round(n / total * 100)}%`);
   }
   if (photoParts.length) parts.push(new Blob(photoParts));
-  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {}, genresExtra: extraGenres(), releases: getRels() });
+  const head = JSON.stringify({ app: "vinili", version: 1, exportedAt: new Date().toISOString(), artistInfo: m.artistInfo || {}, artistPhotoUrls: urls, artistAuto: artistAutoMap(), artistManual: m.artistManual || {}, genresExtra: extraGenres(), releases: getRels(), charts: getCharts() });
   parts.unshift(head.slice(0, -1) + ',"artistPhotos":{');
   parts.push('},"discs":['); first = true;
   for (const d of state.discs){
@@ -2653,6 +2762,7 @@ function parseBackup(text){
   if (data && data.artistPhotos && typeof data.artistPhotos === "object") out.artistPhotos = data.artistPhotos;
   for (const f of ["artistPhotoUrls", "artistAuto", "artistManual"]) if (data && data[f] && typeof data[f] === "object") out[f] = data[f];
   if (data && Array.isArray(data.releases)) out.releases = cleanRels(data.releases);
+  if (data && data.charts && typeof data.charts === "object"){ const c = {}; for (const [y, l] of Object.entries(data.charts)) if (/^\d{4}$/.test(y) && Array.isArray(l)) c[y] = l.filter(x => x && typeof x.artist === "string" && typeof x.album === "string").map(x => ({ artist: x.artist, album: x.album, ...(typeof x.id === "string" ? { id: x.id } : {}) })); out.charts = c; }
   if (data && Array.isArray(data.genresExtra)) out.genresExtra = data.genresExtra.filter(g => typeof g === "string" && g.trim()).map(g => g.trim().slice(0, 30));
   return out;
 }
@@ -2665,6 +2775,7 @@ async function applyImport(discs){
   const apu = discs.artistPhotoUrls, aau = discs.artistAuto, aman = discs.artistManual; delete discs.artistPhotoUrls; delete discs.artistAuto; delete discs.artistManual;
   const rels = discs.releases; delete discs.releases; if (rels) setRels(rels);
   const gex = discs.genresExtra; delete discs.genresExtra; if (gex) setExtra([...extraGenres(), ...gex]);
+  const chs = discs.charts; delete discs.charts; if (chs) setMeta("charts", { ...chs, ...getCharts() }); // le classifiche già presenti qui restano come sono
   if (apu){ const cur = { ...artistUrlMap() }; for (const [k, v] of Object.entries(apu)) if (typeof v === "string" && /^https:\/\//.test(v) && !cur[k] && !(await (async () => { try { return !!(await idb.get("artist:" + k)); } catch(e){ return false; } })())) cur[k] = v; setMeta("artistPhotoUrls", cur); }
   if (aau) setMeta("artistAuto", { ...aau, ...artistAutoMap() });
   if (aman) setMeta("artistManual", { ...aman, ...(getMeta().artistManual || {}) });
@@ -2768,7 +2879,7 @@ function backupLabelDue(m){
   return new Date().getHours() >= 20 || Date.now() - new Date(m.lastBackupAt).getTime() >= 2 * 86400000;
 }
 function snoozeTomorrow(){ const d = new Date(); d.setHours(24, 0, 0, 0); return d.toISOString(); }
-const SNAP_UNIT = "dischi", SNAP_KEEP_META = ["lastBackupAt", "snoozeUntil", "firstSeenAt", "discogsToken", "viewMode", "textScale"];
+const SNAP_UNIT = "dischi", SNAP_KEEP_META = ["lastBackupAt", "snoozeUntil", "firstSeenAt", "discogsToken", "viewMode", "textScale", "chartsSeeded"];
 function applyTextScale(){ const s = Number(getMeta().textScale) || 100; document.documentElement.style.setProperty("--ts", String(s / 100)); }
 function openTextSize(){
   const cur = Number(getMeta().textScale) || 100;
@@ -2885,6 +2996,7 @@ state.discs = load();
 state.mode = getMeta().viewMode === "cover" ? "cover" : "spine";
 if (!getMeta().firstSeenAt) setMeta("firstSeenAt", new Date().toISOString());
 applyTextScale();
+try { seedCharts(); } catch(e){}
 showView((location.hash || "").slice(1), false);
 snapDaily();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible"){ snapDaily(); try { $("homeBanner").innerHTML = bannerHTML(); } catch(e){} } });
