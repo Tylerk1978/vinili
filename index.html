@@ -460,17 +460,15 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
     <div class="fcover" style="margin-top:14px">
       <div class="fcover-prev" id="fCoverPrev"></div>
       <div class="fcover-acts">
-        <div class="fcover-h">Copertina</div>
-        <button type="button" class="btn ghost small" id="fSearch">Cerca online</button>
-        <button type="button" class="btn ghost small" id="fPhoto">Carica foto</button>
-        <button type="button" class="btn ghost small" id="fCoverDel">Togli</button>
+        <button type="button" class="btn ghost small" id="fCoverMenu">Copertina</button>
+        <button type="button" class="btn ghost small" id="fWiki">Dati online</button>
+        <button type="button" class="btn ghost small" id="fDg">Discogs</button>
       </div>
+      <div hidden><button type="button" id="fSearch"></button><button type="button" id="fPhoto"></button><button type="button" id="fCoverDel"></button></div>
     </div>
     <div class="hint" id="fHint"></div>
     <div class="picks" id="fPicks"></div>
-    <button type="button" class="btn ghost" id="fWiki" style="width:100%;margin-top:14px">Completa i dati online</button>
-    <div class="hint" id="fWikiMsg">Data, tracklist, durata, produttore e line up, solo dove mancano.</div>
-    <button type="button" class="btn ghost" id="fDg" style="width:100%;margin-top:10px" hidden>Collegamento a Discogs</button>
+    <div class="hint" id="fWikiMsg"></div>
     <label for="fArtist">Artista</label>
     <div class="acwrap">
       <input class="field" id="fArtist" autocomplete="off" autocapitalize="words" style="padding-right:44px">
@@ -567,7 +565,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 
 <script>
 (() => {
-const APP_VERSION = "1.99";
+const APP_VERSION = "2.01";
 const PALETTE = ["#1f1d1b","#7a2e2a","#23395b","#2f4a3a","#c49a3a","#e6d9bd","#2c5d63","#5a3550","#a2512b","#6b7b8c","#6b6a3a","#8c2f4b","#3d3a6b","#b8b2a3","#45604d","#9b6b43"];
 const KEY = "vinili.discs.v1", META_KEY = "vinili.meta.v1";
 const state = { artist: null, artistReturn: null, statsSub: null, statsOpen: null, mode: "spine", discs: [], view: "home", q: "", genre: "", year: "", fartist: "", lq: "", newId: null, editing: null, formList: null, fgenres: [], color: "", pending: null, rating: 0 };
@@ -1914,7 +1912,24 @@ function drawStars(){
   }).join("") + `<span class="val">${r ? fmtStar(r) : ""}</span>`;
 }
 $("fWiki").addEventListener("click", wikiFillForm);
-$("fDg").addEventListener("click", () => { if (state.editing) openDgPanel(state.editing); });
+$("fDg").addEventListener("click", () => {
+  if (state.editing) return openDgPanel(state.editing);
+  $("fWikiMsg").textContent = "Salva prima il disco: poi da Modifica → Discogs potrai collegarlo alla sua stampa.";
+});
+// "Copertina": piccolo menu con Cerca online, Carica foto, Togli
+$("fCoverMenu").addEventListener("click", () => {
+  const has = !$("fCoverDel").hidden;
+  $("menu").innerHTML = `<h3>Copertina</h3>
+    <button class="item" id="cmSearch">Cerca online<small>Deezer, Apple Music, Discogs e MusicBrainz: scegli tu quella giusta</small></button>
+    <button class="item" id="cmPhoto">Carica foto<small>Dalla libreria foto o dalla fotocamera</small></button>
+    <button class="item" id="cmDel">Togli<small>Toglie la copertina da questo disco</small></button>
+    <div class="actions"><button class="btn ghost" id="cmClose">Annulla</button></div>`;
+  $("menuOv").hidden = false; $("menu").scrollTop = 0;
+  $("cmClose").onclick = () => { $("menuOv").hidden = true; };
+  $("cmSearch").onclick = () => { $("menuOv").hidden = true; $("fSearch").click(); setTimeout(() => $("fHint").scrollIntoView({ behavior: "smooth", block: "center" }), 50); };
+  $("cmPhoto").onclick = () => { $("menuOv").hidden = true; $("fPhoto").click(); };
+  $("cmDel").onclick = () => { $("menuOv").hidden = true; if (has) $("fCoverDel").click(); else $("fHint").textContent = "Questo disco non ha una copertina da togliere."; };
+});
 $("fStars").addEventListener("click", e => { const b = e.target.closest("button[data-r]"); if (!b) return; const r = Number(b.dataset.r); state.rating = state.rating === r ? 0 : r; drawStars(); });
 // Stelle con riempimento parziale (mezza stella disegnata, non "½")
 function starsHTML(r){
@@ -2140,12 +2155,12 @@ function focusDisc(id, fallbackY){
 function openForm(d, list){
   state.formScroll = window.scrollY;
   state.editing = d ? d.id : null; state.formList = d ? (d.list || null) : list;
-  $("fDg").hidden = !d;
+  $("fDg").hidden = false;
   state.pending = null; state.fgenres = [...(d?.genres || [])]; state.color = d?.color || "";
   $("formTitle").textContent = d ? "Modifica disco" : list === "wish" ? "Nuovo disco in wishlist" : list === "incoming" ? "Nuovo disco in arrivo" : "Nuovo disco";
   $("fSave").textContent = d ? "Salva" : list ? "Aggiungi alla lista" : "Metti in collezione";
   $("fArtistAc").hidden = true;
-  if ($("fWikiMsg")) $("fWikiMsg").textContent = "Data, tracklist, durata, produttore e line up, solo dove mancano.";
+  if ($("fWikiMsg")) $("fWikiMsg").textContent = "";
   $("fArtist").value = d?.artist || ""; $("fAlbum").value = d?.album || ""; $("fYear").value = d?.releaseDate ? fmtDate(d.releaseDate) : (d?.year || ""); $("fDuration").value = d?.duration || "";
   $("fVinyl").value = d?.vinyl || ""; $("fLineup").value = d?.lineup || ""; $("fProducer").value = d?.producer || ""; $("fDiscs").value = d?.discs || ""; $("fLimited").value = d?.limited || ""; $("fTracks").value = d?.tracks || ""; $("fNotes").value = d?.notes || "";
   $("fHint").textContent = ""; $("fPicks").innerHTML = ""; $("fErr").textContent = ""; $("fScanHint").textContent = "";
